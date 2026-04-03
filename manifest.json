@@ -1,0 +1,14 @@
+{
+  "name": "Alfajores Tracker",
+  "short_name": "Alfajores",
+  "description": "Control de entregas de alfajores",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#09090b",
+  "theme_color": "#f59e0b",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
