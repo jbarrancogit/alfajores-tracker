@@ -1,5 +1,5 @@
-const SUPABASE_URL = 'YOUR_SUPABASE_URL';       // ← Replace after Task 1
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; // ← Replace after Task 1
+const SUPABASE_URL = 'https://rcyeujuqsicgkmilxpvb.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_40z5jVgzQoUeS815XABZNw_ewFTjg2o';
 
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
