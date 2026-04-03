@@ -52,6 +52,7 @@ const Auth = {
 
   async onLogin(session) {
     Auth.currentUser = session.user;
+    console.log('Auth: usuario autenticado', session.user.id, session.user.email);
 
     // Fetch profile from usuarios table
     const { data, error } = await db
@@ -60,9 +61,11 @@ const Auth = {
       .eq('id', session.user.id)
       .single();
 
+    if (error) console.warn('Auth: error leyendo perfil:', error.message);
+
     if (error || !data) {
       // User exists in auth but not in usuarios table — create basic profile
-      const { data: newProfile } = await db
+      const { data: newProfile, error: insertErr } = await db
         .from('usuarios')
         .insert({
           id: session.user.id,
@@ -72,10 +75,12 @@ const Auth = {
         })
         .select()
         .single();
+      if (insertErr) console.error('Auth: error creando perfil:', insertErr);
       Auth.currentProfile = newProfile;
     } else {
       Auth.currentProfile = data;
     }
+    console.log('Auth: perfil cargado', Auth.currentProfile);
   },
 
   async logout() {

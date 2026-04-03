@@ -133,67 +133,90 @@ const Entregas = {
     btn.disabled = true;
     btn.textContent = 'Guardando...';
 
-    let puntoId = document.getElementById('ent-punto').value;
+    try {
+      let puntoId = document.getElementById('ent-punto').value;
 
-    // Create new punto if needed
-    if (puntoId === '__nuevo__') {
-      const nombre = document.getElementById('ent-punto-nombre').value.trim();
-      if (!nombre) {
-        showToast('Ingresá el nombre del punto');
+      // Create new punto if needed
+      if (puntoId === '__nuevo__') {
+        const nombre = document.getElementById('ent-punto-nombre').value.trim();
+        if (!nombre) {
+          showToast('Ingresá el nombre del punto');
+          btn.disabled = false;
+          btn.textContent = editId ? 'Actualizar' : 'Guardar entrega';
+          return;
+        }
+        try {
+          const punto = await Puntos.create({
+            nombre,
+            direccion: document.getElementById('ent-punto-dir').value.trim(),
+            contacto: document.getElementById('ent-punto-contacto').value.trim()
+          });
+          puntoId = punto.id;
+        } catch (puntoErr) {
+          console.error('Error creando punto:', puntoErr);
+          showToast('Error creando punto: ' + (puntoErr.message || puntoErr));
+          btn.disabled = false;
+          btn.textContent = editId ? 'Actualizar' : 'Guardar entrega';
+          return;
+        }
+      }
+
+      const cantidad = parseInt(document.getElementById('ent-cantidad').value) || 0;
+      const precio = parseFloat(document.getElementById('ent-precio').value) || 0;
+
+      if (cantidad <= 0) {
+        showToast('Ingresá la cantidad');
         btn.disabled = false;
         btn.textContent = editId ? 'Actualizar' : 'Guardar entrega';
         return;
       }
-      const punto = await Puntos.create({
-        nombre,
-        direccion: document.getElementById('ent-punto-dir').value.trim(),
-        contacto: document.getElementById('ent-punto-contacto').value.trim()
-      });
-      puntoId = punto.id;
-    }
 
-    const cantidad = parseInt(document.getElementById('ent-cantidad').value) || 0;
-    const precio = parseFloat(document.getElementById('ent-precio').value) || 0;
+      const fechaRaw = document.getElementById('ent-fecha').value;
+      const fechaISO = new Date(fechaRaw).toISOString();
 
-    if (cantidad <= 0) {
-      showToast('Ingresá la cantidad');
+      const row = {
+        fecha_hora: fechaISO,
+        repartidor_id: Auth.currentUser.id,
+        punto_entrega_id: puntoId || null,
+        punto_nombre_temp: puntoId ? '' : document.getElementById('ent-punto-nombre')?.value.trim() || '',
+        recibio: document.getElementById('ent-recibio').value.trim(),
+        cantidad,
+        precio_unitario: precio,
+        monto_total: cantidad * precio,
+        monto_pagado: parseFloat(document.getElementById('ent-pagado').value) || 0,
+        forma_pago: document.getElementById('ent-forma-pago').value,
+        notas: document.getElementById('ent-notas').value.trim()
+      };
+
+      // Remember last price
+      Entregas.lastPrecio = precio;
+
+      console.log('Guardando entrega:', JSON.stringify(row));
+
+      let result;
+      if (editId) {
+        result = await db.from('entregas').update(row).eq('id', editId);
+      } else {
+        result = await db.from('entregas').insert(row);
+      }
+
+      console.log('Resultado:', JSON.stringify(result));
+
+      if (result.error) {
+        console.error('Error Supabase:', result.error);
+        showToast('Error al guardar: ' + result.error.message);
+        btn.disabled = false;
+        btn.textContent = editId ? 'Actualizar' : 'Guardar entrega';
+        return;
+      }
+
+      showToast(editId ? 'Entrega actualizada' : 'Entrega guardada');
+      window.location.hash = '#/';
+    } catch (err) {
+      console.error('Error inesperado en handleSave:', err);
+      showToast('Error inesperado: ' + (err.message || err));
       btn.disabled = false;
       btn.textContent = editId ? 'Actualizar' : 'Guardar entrega';
-      return;
     }
-
-    const row = {
-      fecha_hora: document.getElementById('ent-fecha').value,
-      repartidor_id: Auth.currentUser.id,
-      punto_entrega_id: puntoId || null,
-      punto_nombre_temp: puntoId ? '' : document.getElementById('ent-punto-nombre')?.value.trim() || '',
-      recibio: document.getElementById('ent-recibio').value.trim(),
-      cantidad,
-      precio_unitario: precio,
-      monto_total: cantidad * precio,
-      monto_pagado: parseFloat(document.getElementById('ent-pagado').value) || 0,
-      forma_pago: document.getElementById('ent-forma-pago').value,
-      notas: document.getElementById('ent-notas').value.trim()
-    };
-
-    // Remember last price
-    Entregas.lastPrecio = precio;
-
-    let error;
-    if (editId) {
-      ({ error } = await db.from('entregas').update(row).eq('id', editId));
-    } else {
-      ({ error } = await db.from('entregas').insert(row));
-    }
-
-    if (error) {
-      showToast('Error al guardar: ' + error.message);
-      btn.disabled = false;
-      btn.textContent = editId ? 'Actualizar' : 'Guardar entrega';
-      return;
-    }
-
-    showToast(editId ? 'Entrega actualizada' : 'Entrega guardada');
-    window.location.hash = '#/';
   }
 };
