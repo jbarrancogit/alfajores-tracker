@@ -5,21 +5,19 @@ const App = {
     '/': () => Dashboard.render(),
     '/entrega': () => Entregas.renderForm(),
     '/historial': () => Historial.render(),
-    '/resumenes': () => Resumenes.render(),
+    '/analisis': () => Analisis.render(),
+    '/config': () => Config.render(),
   },
 
   init() {
-    // Listen for hash changes
     window.addEventListener('hashchange', () => App.navigate());
 
-    // Nav button clicks
     document.querySelectorAll('.nav-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         window.location.hash = '#' + btn.dataset.route;
       });
     });
 
-    // Auth state listener
     db.auth.onAuthStateChange((event, session) => {
       if (session) {
         Auth.onLogin(session).then(() => {
@@ -50,7 +48,6 @@ const App = {
     if (typeof html === 'string') {
       appEl.innerHTML = '<div class="screen">' + html + '</div>';
     }
-    // If route returns a Promise (async render), it handles its own DOM update
   },
 
   updateNav(hash) {
@@ -58,14 +55,13 @@ const App = {
       const isActive = btn.dataset.route === hash;
       btn.classList.toggle('active', isActive);
     });
-    // Hide Resúmenes tab for non-admin
-    const resBtn = document.querySelector('[data-route="/resumenes"]');
-    if (resBtn && Auth.currentProfile) {
-      resBtn.style.display = Auth.currentProfile.rol === 'admin' ? '' : 'none';
+    // Hide Análisis tab for non-admin
+    const analBtn = document.querySelector('[data-route="/analisis"]');
+    if (analBtn && Auth.currentProfile) {
+      analBtn.style.display = Auth.currentProfile.rol === 'admin' ? '' : 'none';
     }
   },
 
-  /** Render into #app from async functions */
   setContent(html) {
     document.getElementById('app').innerHTML = '<div class="screen">' + html + '</div>';
   }

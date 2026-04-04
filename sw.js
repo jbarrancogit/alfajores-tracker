@@ -1,4 +1,4 @@
-const CACHE_NAME = 'alfajores-v3';
+const CACHE_NAME = 'alfajores-v4';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -7,10 +7,14 @@ const STATIC_ASSETS = [
   './js/auth.js',
   './js/app.js',
   './js/puntos.js',
+  './js/tipos.js',
+  './js/pagos.js',
   './js/entregas.js',
   './js/dashboard.js',
   './js/historial.js',
-  './js/resumenes.js',
+  './js/analisis.js',
+  './js/excel.js',
+  './js/config.js',
   './manifest.json'
 ];
 
@@ -32,6 +36,8 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.url.includes('supabase.co')) return;
+  if (e.request.url.includes('cdn.sheetjs.com')) return;
+  if (e.request.url.includes('cdn.jsdelivr.net')) return;
   e.respondWith(
     caches.match(e.request).then((cached) => cached || fetch(e.request))
   );
