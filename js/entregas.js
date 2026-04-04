@@ -97,7 +97,7 @@ const Entregas = {
                              value="${precio}" placeholder="$0" inputmode="numeric"
                              oninput="Entregas.calcTotal()">
                     </div>
-                    <div>
+                    <div class="ent-costo-col hidden">
                       <label>Costo</label>
                       <input class="form-input ent-line-costo" type="number" min="0" step="1"
                              value="${costo}" placeholder="$0" inputmode="numeric">
@@ -107,6 +107,7 @@ const Entregas = {
               `;
             }).join('')}
           </div>
+          <a href="#" class="ajustar-costos-link" onclick="Entregas.toggleCostos(event)">Ajustar costos</a>
 
           <div class="form-group">
             <label class="form-label">Total</label>
@@ -159,6 +160,14 @@ const Entregas = {
     fields.classList.toggle('hidden', val !== '__nuevo__');
   },
 
+  toggleCostos(ev) {
+    ev.preventDefault();
+    const link = ev.target;
+    const showing = link.classList.toggle('active');
+    link.textContent = showing ? 'Ocultar costos' : 'Ajustar costos';
+    document.querySelectorAll('.ent-costo-col').forEach(el => el.classList.toggle('hidden', !showing));
+  },
+
   calcTotal() {
     let total = 0;
     document.querySelectorAll('.type-line').forEach(line => {
@@ -185,7 +194,9 @@ const Entregas = {
       const tipoId = lineEl.dataset.tipoId;
       const cant = parseInt(lineEl.querySelector('.ent-line-cant').value) || 0;
       const precio = parseFloat(lineEl.querySelector('.ent-line-precio').value) || 0;
-      const costo = parseFloat(lineEl.querySelector('.ent-line-costo').value) || 0;
+      const costoInput = parseFloat(lineEl.querySelector('.ent-line-costo').value) || 0;
+      const tipo = Tipos.cache.find(t => t.id === tipoId);
+      const costo = costoInput || (tipo ? parseFloat(tipo.costo_default) || 0 : 0);
       if (cant > 0) {
         lines.push({ tipo_alfajor_id: tipoId, cantidad: cant, precio_unitario: precio, costo_unitario: costo });
         Tipos.saveLast(tipoId, precio, costo);

@@ -563,9 +563,21 @@ h3 { font-size: 1.1rem; font-weight: 600; }
 }
 .type-line-fields {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
+.type-line-fields.show-costos {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.ajustar-costos-link {
+  display: block;
+  text-align: right;
+  font-size: 0.8rem;
+  color: var(--accent);
+  margin: 4px 0 12px;
+  text-decoration: none;
+}
+.ajustar-costos-link:hover { text-decoration: underline; }
 .type-line-fields .form-input {
   min-height: 40px;
   padding: 8px 10px;
