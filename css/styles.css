@@ -530,3 +530,234 @@ h3 { font-size: 1.1rem; font-weight: 600; }
 .mb-16 { margin-bottom: 16px; }
 .w-full { width: 100%; }
 .hidden { display: none !important; }
+
+/* ══════════════════════════════════════
+   V2 ADDITIONS
+   ══════════════════════════════════════ */
+
+/* ── Badge: partial payment ── */
+.badge-yellow { background: rgba(234, 179, 8, 0.12); color: #eab308; }
+
+/* ── Type line rows (entrega form) ── */
+.type-line {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 8px;
+}
+.type-line-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+.type-line-name .reventa-tag {
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+}
+.type-line-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+.type-line-fields .form-input {
+  min-height: 40px;
+  padding: 8px 10px;
+  font-size: 0.9rem;
+}
+.type-line-fields label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 3px;
+  display: block;
+}
+
+/* ── Payment form (inline in modal) ── */
+.pago-form {
+  background: var(--accent-bg);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-top: 12px;
+}
+.pago-form .form-group { margin-bottom: 10px; }
+.pago-form .form-label { font-size: 0.7rem; }
+
+.pago-historial {
+  margin-top: 12px;
+}
+.pago-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+.pago-item:last-child { border-bottom: none; }
+.pago-item-date { color: var(--text-muted); font-size: 0.75rem; }
+
+/* ── Deudor modal ── */
+.deudor-entrega {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 8px;
+}
+.deudor-entrega-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.deudor-entrega-detail {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* ── Metrics grid: 6 cards (2 rows × 3) ── */
+.metrics-grid-6 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+/* ── Type breakdown list ── */
+.type-breakdown-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+}
+.type-breakdown-item .type-name { font-weight: 500; }
+.type-breakdown-item .type-stat {
+  text-align: right;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* ── Comparison chips ── */
+.comparison-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.comparison-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 0.8rem;
+}
+.comparison-chip .positive { color: var(--green); }
+.comparison-chip .negative { color: var(--red); }
+
+/* ── Config panel ── */
+.config-section {
+  margin-bottom: 24px;
+}
+.config-section-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.config-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+}
+.config-item-info { flex: 1; min-width: 0; }
+.config-item-name { font-weight: 500; font-size: 0.9rem; }
+.config-item-detail { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+.config-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+.toggle-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.toggle-switch.on { background: var(--green); border-color: var(--green); }
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: var(--text-primary);
+  border-radius: 50%;
+  transition: transform var(--transition);
+}
+.toggle-switch.on::after { transform: translateX(20px); }
+
+/* ── Export modal ── */
+.export-option {
+  padding: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.export-option:active { background: var(--bg-card-hover); border-color: var(--accent); }
+.export-option-title { font-weight: 600; margin-bottom: 4px; }
+.export-option-desc { font-size: 0.8rem; color: var(--text-muted); }
+
+/* ── Date range picker ── */
+.date-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.date-range .form-input {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+
+/* ── Detail modal: line breakdown ── */
+.detail-lines {
+  margin: 8px 0;
+}
+.detail-line {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+.detail-line-type { font-weight: 500; color: var(--text-primary); }
