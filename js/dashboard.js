@@ -4,9 +4,16 @@ const Dashboard = {
     return `
       <div class="app-header">
         <h1>Alfajores Tracker</h1>
-        <button class="btn-icon" onclick="Auth.logout()" title="Cerrar sesión">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        </button>
+        <div style="display:flex;gap:6px">
+          ${Auth.isAdmin() ? `
+          <button class="btn-icon" onclick="window.location.hash='#/config'" title="Configuración">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </button>
+          ` : ''}
+          <button class="btn-icon" onclick="Auth.logout()" title="Cerrar sesión">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
+        </div>
       </div>
       <div id="dash-metrics" class="metrics-grid">
         <div class="metric-card"><div class="metric-value">-</div><div class="metric-label">Entregas</div></div>
@@ -28,7 +35,6 @@ const Dashboard = {
     today.setHours(0, 0, 0, 0);
     const isAdmin = Auth.isAdmin();
 
-    // Today's deliveries
     let query = db.from('entregas').select('*').gte('fecha_hora', today.toISOString());
     if (!isAdmin) query = query.eq('repartidor_id', Auth.currentUser.id);
     const { data: todayEntregas } = await query;
@@ -46,21 +52,28 @@ const Dashboard = {
       `;
     }
 
-    // Top debtors
-    const { data: allEntregas } = await db.from('entregas').select('punto_entrega_id, monto_total, monto_pagado, puntos_entrega(nombre)');
+    const { data: allEntregas } = await db.from('entregas')
+      .select('punto_entrega_id, monto_total, monto_pagado, puntos_entrega(nombre)');
     const deudaMap = {};
     (allEntregas || []).forEach(e => {
       if (!e.punto_entrega_id) return;
       const key = e.punto_entrega_id;
-      if (!deudaMap[key]) deudaMap[key] = { nombre: e.puntos_entrega?.nombre || '?', total: 0, pagado: 0 };
+      if (!deudaMap[key]) deudaMap[key] = {
+        id: key,
+        nombre: e.puntos_entrega?.nombre || '?',
+        total: 0,
+        pagado: 0,
+        entregas: 0
+      };
       deudaMap[key].total += Number(e.monto_total);
       deudaMap[key].pagado += Number(e.monto_pagado);
+      if (Number(e.monto_pagado) < Number(e.monto_total)) deudaMap[key].entregas++;
     });
     const deudores = Object.values(deudaMap)
       .map(d => ({ ...d, saldo: d.total - d.pagado }))
       .filter(d => d.saldo > 0)
       .sort((a, b) => b.saldo - a.saldo)
-      .slice(0, 3);
+      .slice(0, 5);
 
     const deudoresEl = document.getElementById('dash-deudores');
     if (deudoresEl) {
@@ -68,9 +81,10 @@ const Dashboard = {
         deudoresEl.innerHTML = '<p class="text-sm text-muted" style="padding:8px 0">Sin deudas pendientes</p>';
       } else {
         deudoresEl.innerHTML = deudores.map(d => `
-          <div class="list-item">
+          <div class="list-item" onclick="Pagos.showDeudorModal('${d.id}', '${esc(d.nombre)}')">
             <div class="list-item-content">
               <div class="list-item-title">${esc(d.nombre)}</div>
+              <div class="list-item-subtitle">${d.entregas} entregas pendientes</div>
             </div>
             <div class="list-item-right">
               <div class="list-item-amount text-red">${fmtMoney(d.saldo)}</div>
@@ -80,8 +94,9 @@ const Dashboard = {
       }
     }
 
-    // Recent deliveries (last 5)
-    let recentQ = db.from('entregas').select('*, puntos_entrega(nombre)').order('fecha_hora', { ascending: false }).limit(5);
+    let recentQ = db.from('entregas')
+      .select('*, puntos_entrega(nombre), entrega_lineas(cantidad, tipos_alfajor(nombre))')
+      .order('fecha_hora', { ascending: false }).limit(5);
     if (!isAdmin) recentQ = recentQ.eq('repartidor_id', Auth.currentUser.id);
     const { data: recientes } = await recentQ;
 
@@ -92,16 +107,19 @@ const Dashboard = {
       } else {
         recientesEl.innerHTML = recientes.map(e => {
           const nombre = e.puntos_entrega?.nombre || e.punto_nombre_temp || 'Sin punto';
-          const pagado = Number(e.monto_pagado) >= Number(e.monto_total);
+          const lineas = e.entrega_lineas || [];
+          const resumen = lineas.length > 0
+            ? lineas.map(l => `${l.cantidad} ${l.tipos_alfajor?.nombre || '?'}`).join(', ')
+            : e.cantidad + ' uds';
           return `
             <div class="list-item">
               <div class="list-item-content">
                 <div class="list-item-title">${esc(nombre)}</div>
-                <div class="list-item-subtitle">${fmtDateTime(e.fecha_hora)} · ${e.cantidad} uds</div>
+                <div class="list-item-subtitle">${fmtDateTime(e.fecha_hora)} · ${esc(resumen)}</div>
               </div>
               <div class="list-item-right">
                 <div class="list-item-amount">${fmtMoney(e.monto_total)}</div>
-                <span class="badge ${pagado ? 'badge-green' : 'badge-red'}">${pagado ? 'Pagado' : 'Debe'}</span>
+                ${Pagos.badge(e.monto_pagado, e.monto_total)}
               </div>
             </div>
           `;
