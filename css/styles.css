@@ -592,6 +592,22 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   display: block;
 }
 
+/* ── Split payment row ── */
+.pago-split-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.pago-split-row .form-group { margin-bottom: 4px; }
+.pago-summary {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  min-height: 1.2em;
+}
+.pago-summary.warn { color: var(--warning); }
+.pago-summary.ok { color: var(--success); }
+
 /* ── Payment form (inline in modal) ── */
 .pago-form {
   background: var(--accent-bg);

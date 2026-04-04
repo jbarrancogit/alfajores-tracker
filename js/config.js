@@ -237,19 +237,38 @@ const Config = {
     }
 
     try {
-      const { data, error } = await db.auth.signUp({ email, password: pass });
+      // Save admin session before signUp (it may create a new session)
+      const { data: adminSession } = await db.auth.getSession();
+
+      const { data, error } = await db.auth.signUp({
+        email,
+        password: pass,
+        options: {
+          emailRedirectTo: window.location.origin + window.location.pathname,
+          data: { nombre: nombre }
+        }
+      });
       if (error) throw error;
 
+      // Restore admin session if signUp changed it
+      const { data: currentSession } = await db.auth.getSession();
+      if (adminSession?.session && currentSession?.session?.user?.id !== adminSession.session.user.id) {
+        await db.auth.setSession(adminSession.session);
+      }
+
       if (data.user) {
-        await db.from('usuarios').insert({
+        // Insert into usuarios table (works even if email not yet confirmed)
+        const { error: insertErr } = await db.from('usuarios').insert({
           id: data.user.id,
           nombre: nombre,
           email: email,
           rol: rol
         });
+        // Ignore duplicate key error (user may already exist)
+        if (insertErr && !insertErr.message.includes('duplicate')) throw insertErr;
       }
 
-      showToast('Usuario creado');
+      showToast('Usuario creado — ya puede iniciar sesión');
       document.getElementById('config-invite-slot').innerHTML = '';
       Config.loadData();
     } catch (err) {

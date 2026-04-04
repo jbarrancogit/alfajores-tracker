@@ -115,24 +115,24 @@ const Entregas = {
                    value="${e.monto_total || ''}" style="color:var(--accent);font-weight:700">
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Monto pagado</label>
-            <input class="form-input" id="ent-pagado" type="number" min="0" step="1"
-                   value="${e.monto_pagado || ''}" placeholder="$0" inputmode="numeric">
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Forma de pago</label>
-            <div class="toggle-group">
-              <button type="button" class="toggle-btn ${(e.forma_pago || 'efectivo') === 'efectivo' ? 'active' : ''}"
-                      onclick="Entregas.setPago(this, 'efectivo')">Efectivo</button>
-              <button type="button" class="toggle-btn ${e.forma_pago === 'transferencia' ? 'active' : ''}"
-                      onclick="Entregas.setPago(this, 'transferencia')">Transfer.</button>
-              <button type="button" class="toggle-btn ${e.forma_pago === 'fiado' ? 'active' : ''}"
-                      onclick="Entregas.setPago(this, 'fiado')">Fiado</button>
+          <div class="section-title">Pago</div>
+          <div class="pago-split-row">
+            <div class="form-group">
+              <label class="form-label">Efectivo</label>
+              <input class="form-input" id="ent-pago-efectivo" type="number" min="0" step="1"
+                     placeholder="$0" inputmode="numeric"
+                     value="${e._pagoEfectivo || ''}"
+                     oninput="Entregas.calcPagado()">
             </div>
-            <input type="hidden" id="ent-forma-pago" value="${e.forma_pago || 'efectivo'}">
+            <div class="form-group">
+              <label class="form-label">Transferencia</label>
+              <input class="form-input" id="ent-pago-transfer" type="number" min="0" step="1"
+                     placeholder="$0" inputmode="numeric"
+                     value="${e._pagoTransfer || ''}"
+                     oninput="Entregas.calcPagado()">
+            </div>
           </div>
+          <div class="pago-summary" id="pago-summary"></div>
 
           <div class="form-group">
             <label class="form-label">Notas</label>
@@ -178,13 +178,31 @@ const Entregas = {
     document.getElementById('ent-total').value = total;
   },
 
-  setPago(btn, value) {
-    document.querySelectorAll('.toggle-group .toggle-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('ent-forma-pago').value = value;
-    if (value === 'fiado') {
-      document.getElementById('ent-pagado').value = 0;
+  calcPagado() {
+    const ef = parseFloat(document.getElementById('ent-pago-efectivo').value) || 0;
+    const tr = parseFloat(document.getElementById('ent-pago-transfer').value) || 0;
+    const total = parseFloat(document.getElementById('ent-total').value) || 0;
+    const pagado = ef + tr;
+    const sumEl = document.getElementById('pago-summary');
+    if (pagado > 0 && pagado < total) {
+      sumEl.textContent = 'Pagado: ' + fmtMoney(pagado) + ' — Fiado: ' + fmtMoney(total - pagado);
+      sumEl.className = 'pago-summary warn';
+    } else if (pagado >= total && total > 0) {
+      sumEl.textContent = 'Pagado: ' + fmtMoney(pagado);
+      sumEl.className = 'pago-summary ok';
+    } else {
+      sumEl.textContent = total > 0 ? 'Fiado: ' + fmtMoney(total) : '';
+      sumEl.className = 'pago-summary';
     }
+  },
+
+  _detectFormaPago() {
+    const ef = parseFloat(document.getElementById('ent-pago-efectivo').value) || 0;
+    const tr = parseFloat(document.getElementById('ent-pago-transfer').value) || 0;
+    if (ef > 0 && tr > 0) return 'mixto';
+    if (ef > 0) return 'efectivo';
+    if (tr > 0) return 'transferencia';
+    return 'fiado';
   },
 
   /** Collect line data from the form */
@@ -260,8 +278,9 @@ const Entregas = {
         cantidad: cantidadTotal,
         precio_unitario: precioPromedio,
         monto_total: montoTotal,
-        monto_pagado: parseFloat(document.getElementById('ent-pagado').value) || 0,
-        forma_pago: document.getElementById('ent-forma-pago').value,
+        monto_pagado: (parseFloat(document.getElementById('ent-pago-efectivo').value) || 0)
+                    + (parseFloat(document.getElementById('ent-pago-transfer').value) || 0),
+        forma_pago: Entregas._detectFormaPago(),
         notas: document.getElementById('ent-notas').value.trim()
       };
 
@@ -283,14 +302,16 @@ const Entregas = {
       const { error: lineErr } = await db.from('entrega_lineas').insert(lineRows);
       if (lineErr) throw lineErr;
 
-      // If initial payment and not edit, register in pagos table
-      if (!editId && row.monto_pagado > 0 && row.forma_pago !== 'fiado') {
-        await db.from('pagos').insert({
-          entrega_id: entregaId,
-          monto: row.monto_pagado,
-          forma_pago: row.forma_pago,
-          registrado_por: Auth.currentUser.id
-        });
+      // Register initial payments (one per method used)
+      if (!editId) {
+        const pagoEf = parseFloat(document.getElementById('ent-pago-efectivo').value) || 0;
+        const pagoTr = parseFloat(document.getElementById('ent-pago-transfer').value) || 0;
+        const pagosToInsert = [];
+        if (pagoEf > 0) pagosToInsert.push({ entrega_id: entregaId, monto: pagoEf, forma_pago: 'efectivo', registrado_por: Auth.currentUser.id });
+        if (pagoTr > 0) pagosToInsert.push({ entrega_id: entregaId, monto: pagoTr, forma_pago: 'transferencia', registrado_por: Auth.currentUser.id });
+        if (pagosToInsert.length > 0) {
+          await db.from('pagos').insert(pagosToInsert);
+        }
       }
 
       showToast(editId ? 'Entrega actualizada' : 'Entrega guardada');

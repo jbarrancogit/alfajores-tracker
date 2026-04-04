@@ -1,4 +1,4 @@
-const CACHE_NAME = 'alfajores-v5';
+const CACHE_NAME = 'alfajores-v6';
 const STATIC_ASSETS = [
   './',
   './index.html',
