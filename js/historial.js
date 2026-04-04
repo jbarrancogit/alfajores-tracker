@@ -72,7 +72,7 @@ const Historial = {
     listEl.innerHTML = '<div class="spinner mt-8"></div>';
 
     let query = db.from('entregas')
-      .select('*, puntos_entrega(nombre)')
+      .select('*, puntos_entrega(nombre), entrega_lineas(*, tipos_alfajor(nombre))')
       .order('fecha_hora', { ascending: false });
 
     const now = new Date();
@@ -106,16 +106,19 @@ const Historial = {
 
     listEl.innerHTML = data.map(e => {
       const nombre = e.puntos_entrega?.nombre || e.punto_nombre_temp || 'Sin punto';
-      const pagado = Number(e.monto_pagado) >= Number(e.monto_total);
+      const lineas = (e.entrega_lineas || []);
+      const resumen = lineas.length > 0
+        ? lineas.map(l => `${l.cantidad} ${l.tipos_alfajor?.nombre || '?'}`).join(', ')
+        : e.cantidad + ' uds';
       return `
         <div class="list-item" onclick="Historial.showDetail('${e.id}')">
           <div class="list-item-content">
             <div class="list-item-title">${esc(nombre)}</div>
-            <div class="list-item-subtitle">${fmtDateTime(e.fecha_hora)} · ${e.cantidad} uds · ${esc(e.recibio || '')}</div>
+            <div class="list-item-subtitle">${fmtDateTime(e.fecha_hora)} · ${esc(resumen)}</div>
           </div>
           <div class="list-item-right">
             <div class="list-item-amount">${fmtMoney(e.monto_total)}</div>
-            <span class="badge ${pagado ? 'badge-green' : 'badge-red'}">${pagado ? 'Pagado' : 'Debe'}</span>
+            ${Pagos.badge(e.monto_pagado, e.monto_total)}
           </div>
         </div>
       `;
@@ -126,12 +129,15 @@ const Historial = {
 
   _data: [],
 
-  showDetail(id) {
+  async showDetail(id) {
     const e = Historial._data.find(x => x.id === id);
     if (!e) return;
     const nombre = e.puntos_entrega?.nombre || e.punto_nombre_temp || 'Sin punto';
-    const pagado = Number(e.monto_pagado) >= Number(e.monto_total);
     const saldo = Number(e.monto_total) - Number(e.monto_pagado);
+    const lineas = e.entrega_lineas || [];
+
+    // Fetch payment history
+    const pagosHist = await Pagos.historial(e.id);
 
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
@@ -146,21 +152,49 @@ const Historial = {
           <p><strong>Punto:</strong> ${esc(nombre)}</p>
           <p><strong>Recibió:</strong> ${esc(e.recibio || '-')}</p>
           <p><strong>Fecha:</strong> ${fmtDateTime(e.fecha_hora)}</p>
-          <p><strong>Cantidad:</strong> ${e.cantidad} unidades</p>
-          <p><strong>Precio unitario:</strong> ${fmtMoney(e.precio_unitario)}</p>
+
+          ${lineas.length > 0 ? `
+            <div class="detail-lines">
+              ${lineas.map(l => `
+                <div class="detail-line">
+                  <span class="detail-line-type">${esc(l.tipos_alfajor?.nombre || '?')}</span>
+                  <span>${l.cantidad} × ${fmtMoney(l.precio_unitario)} = ${fmtMoney(l.cantidad * l.precio_unitario)}</span>
+                </div>
+              `).join('')}
+            </div>
+          ` : `
+            <p><strong>Cantidad:</strong> ${e.cantidad} unidades</p>
+            <p><strong>Precio unitario:</strong> ${fmtMoney(e.precio_unitario)}</p>
+          `}
+
           <p><strong>Total:</strong> ${fmtMoney(e.monto_total)}</p>
           <p><strong>Pagado:</strong> ${fmtMoney(e.monto_pagado)}</p>
           ${saldo > 0 ? `<p><strong>Debe:</strong> <span class="text-red">${fmtMoney(saldo)}</span></p>` : ''}
           <p><strong>Forma de pago:</strong> ${esc(e.forma_pago)}</p>
           ${e.notas ? `<p><strong>Notas:</strong> ${esc(e.notas)}</p>` : ''}
         </div>
+
+        ${pagosHist.length > 0 ? `
+          <div class="section-title">Historial de pagos</div>
+          ${Pagos.renderHistorial(pagosHist)}
+        ` : ''}
+
         <div class="flex gap-8 mt-16">
           <button class="btn btn-secondary w-full" onclick="this.closest('.modal-overlay').remove()">Cerrar</button>
-          <button class="btn btn-primary w-full" id="edit-entrega-btn">Editar</button>
+          ${saldo > 0 ? `<button class="btn btn-primary w-full" id="detail-pagar-btn">Registrar pago</button>` : ''}
+          <button class="btn btn-secondary w-full" id="edit-entrega-btn">Editar</button>
         </div>
+        <div id="detail-pago-slot"></div>
       </div>
     `;
     document.body.appendChild(overlay);
+
+    if (saldo > 0) {
+      document.getElementById('detail-pagar-btn').onclick = () => {
+        document.getElementById('detail-pago-slot').innerHTML = Pagos.renderFormInline(e.id, saldo);
+      };
+    }
+
     document.getElementById('edit-entrega-btn').onclick = () => {
       overlay.remove();
       Entregas.renderForm(e);
