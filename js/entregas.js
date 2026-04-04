@@ -1,17 +1,42 @@
 const Entregas = {
-  lastPrecio: null,
-
   renderForm(entrega) {
-    // entrega is optional — if passed, we're editing
     const isEdit = !!entrega;
     const e = entrega || {};
 
-    // Fetch puntos first, then render
-    Puntos.fetchAll().then(() => {
+    Promise.all([Puntos.fetchAll(), Tipos.fetchAll()]).then(async () => {
+      let existingLineas = [];
+      if (isEdit) {
+        const { data } = await db.from('entrega_lineas')
+          .select('*')
+          .eq('entrega_id', e.id);
+        existingLineas = data || [];
+      }
+
+      // Build a map of existing lines by tipo_alfajor_id
+      const lineaMap = {};
+      existingLineas.forEach(l => { lineaMap[l.tipo_alfajor_id] = l; });
+
       const now = new Date();
       const fechaDefault = e.fecha_hora
         ? new Date(e.fecha_hora).toISOString().slice(0, 16)
         : now.toISOString().slice(0, 16);
+
+      const tipos = Tipos.activos();
+
+      // Admin can assign to another repartidor
+      let vendedorSelector = '';
+      if (Auth.isAdmin()) {
+        const { data: usuarios } = await db.from('usuarios').select('id, nombre');
+        const opts = (usuarios || []).map(u =>
+          `<option value="${u.id}" ${u.id === (e.repartidor_id || Auth.currentUser.id) ? 'selected' : ''}>${esc(u.nombre)}</option>`
+        ).join('');
+        vendedorSelector = `
+          <div class="form-group">
+            <label class="form-label">Vendedor</label>
+            <select class="form-select" id="ent-vendedor">${opts}</select>
+          </div>
+        `;
+      }
 
       App.setContent(`
         <div class="app-header">
@@ -45,19 +70,42 @@ const Entregas = {
             <input class="form-input" id="ent-recibio" value="${esc(e.recibio || '')}" placeholder="Nombre de quien recibió">
           </div>
 
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <div class="form-group">
-              <label class="form-label">Cantidad</label>
-              <input class="form-input" id="ent-cantidad" type="number" min="1" step="1"
-                     value="${e.cantidad || ''}" placeholder="0"
-                     inputmode="numeric" oninput="Entregas.calcTotal()">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Precio unitario</label>
-              <input class="form-input" id="ent-precio" type="number" min="0" step="1"
-                     value="${e.precio_unitario || Entregas.lastPrecio || ''}" placeholder="$0"
-                     inputmode="numeric" oninput="Entregas.calcTotal()">
-            </div>
+          ${vendedorSelector}
+
+          <div class="section-title">Alfajores</div>
+          <div id="ent-lineas">
+            ${tipos.map(t => {
+              const linea = lineaMap[t.id];
+              const cant = linea ? linea.cantidad : '';
+              const precio = linea ? linea.precio_unitario : Tipos.getLastPrecio(t.id);
+              const costo = linea ? linea.costo_unitario : (Tipos.getLastCosto(t.id) || t.costo_default || '');
+              return `
+                <div class="type-line" data-tipo-id="${t.id}">
+                  <div class="type-line-name">
+                    ${esc(t.nombre)}${t.es_reventa ? '<span class="reventa-tag">Reventa</span>' : ''}
+                  </div>
+                  <div class="type-line-fields">
+                    <div>
+                      <label>Cant.</label>
+                      <input class="form-input ent-line-cant" type="number" min="0" step="1"
+                             value="${cant}" placeholder="0" inputmode="numeric"
+                             oninput="Entregas.calcTotal()">
+                    </div>
+                    <div>
+                      <label>Precio</label>
+                      <input class="form-input ent-line-precio" type="number" min="0" step="1"
+                             value="${precio}" placeholder="$0" inputmode="numeric"
+                             oninput="Entregas.calcTotal()">
+                    </div>
+                    <div>
+                      <label>Costo</label>
+                      <input class="form-input ent-line-costo" type="number" min="0" step="1"
+                             value="${costo}" placeholder="$0" inputmode="numeric">
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
           </div>
 
           <div class="form-group">
@@ -112,23 +160,42 @@ const Entregas = {
   },
 
   calcTotal() {
-    const cant = parseFloat(document.getElementById('ent-cantidad').value) || 0;
-    const precio = parseFloat(document.getElementById('ent-precio').value) || 0;
-    document.getElementById('ent-total').value = cant * precio;
+    let total = 0;
+    document.querySelectorAll('.type-line').forEach(line => {
+      const cant = parseFloat(line.querySelector('.ent-line-cant').value) || 0;
+      const precio = parseFloat(line.querySelector('.ent-line-precio').value) || 0;
+      total += cant * precio;
+    });
+    document.getElementById('ent-total').value = total;
   },
 
   setPago(btn, value) {
-    document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.toggle-group .toggle-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('ent-forma-pago').value = value;
-    // If fiado, set monto_pagado to 0
     if (value === 'fiado') {
       document.getElementById('ent-pagado').value = 0;
     }
   },
 
-  async handleSave(e, editId) {
-    e.preventDefault();
+  /** Collect line data from the form */
+  _collectLines() {
+    const lines = [];
+    document.querySelectorAll('.type-line').forEach(lineEl => {
+      const tipoId = lineEl.dataset.tipoId;
+      const cant = parseInt(lineEl.querySelector('.ent-line-cant').value) || 0;
+      const precio = parseFloat(lineEl.querySelector('.ent-line-precio').value) || 0;
+      const costo = parseFloat(lineEl.querySelector('.ent-line-costo').value) || 0;
+      if (cant > 0) {
+        lines.push({ tipo_alfajor_id: tipoId, cantidad: cant, precio_unitario: precio, costo_unitario: costo });
+        Tipos.saveLast(tipoId, precio, costo);
+      }
+    });
+    return lines;
+  },
+
+  async handleSave(ev, editId) {
+    ev.preventDefault();
     const btn = document.getElementById('ent-submit');
     btn.disabled = true;
     btn.textContent = 'Guardando...';
@@ -145,76 +212,81 @@ const Entregas = {
           btn.textContent = editId ? 'Actualizar' : 'Guardar entrega';
           return;
         }
-        try {
-          const punto = await Puntos.create({
-            nombre,
-            direccion: document.getElementById('ent-punto-dir').value.trim(),
-            contacto: document.getElementById('ent-punto-contacto').value.trim()
-          });
-          puntoId = punto.id;
-        } catch (puntoErr) {
-          console.error('Error creando punto:', puntoErr);
-          showToast('Error creando punto: ' + (puntoErr.message || puntoErr));
-          btn.disabled = false;
-          btn.textContent = editId ? 'Actualizar' : 'Guardar entrega';
-          return;
-        }
+        const punto = await Puntos.create({
+          nombre,
+          direccion: document.getElementById('ent-punto-dir').value.trim(),
+          contacto: document.getElementById('ent-punto-contacto').value.trim()
+        });
+        puntoId = punto.id;
       }
 
-      const cantidad = parseInt(document.getElementById('ent-cantidad').value) || 0;
-      const precio = parseFloat(document.getElementById('ent-precio').value) || 0;
-
-      if (cantidad <= 0) {
-        showToast('Ingresá la cantidad');
+      const lines = Entregas._collectLines();
+      if (lines.length === 0) {
+        showToast('Ingresá al menos un tipo de alfajor');
         btn.disabled = false;
         btn.textContent = editId ? 'Actualizar' : 'Guardar entrega';
         return;
       }
 
+      // Calculate aggregates
+      const cantidadTotal = lines.reduce((s, l) => s + l.cantidad, 0);
+      const montoTotal = lines.reduce((s, l) => s + l.cantidad * l.precio_unitario, 0);
+      const precioPromedio = cantidadTotal > 0 ? montoTotal / cantidadTotal : 0;
+
       const fechaRaw = document.getElementById('ent-fecha').value;
       const fechaISO = new Date(fechaRaw).toISOString();
 
+      const repartidorId = document.getElementById('ent-vendedor')
+        ? document.getElementById('ent-vendedor').value
+        : Auth.currentUser.id;
+
       const row = {
         fecha_hora: fechaISO,
-        repartidor_id: Auth.currentUser.id,
+        repartidor_id: repartidorId,
         punto_entrega_id: puntoId || null,
-        punto_nombre_temp: puntoId ? '' : document.getElementById('ent-punto-nombre')?.value.trim() || '',
+        punto_nombre_temp: puntoId ? '' : '',
         recibio: document.getElementById('ent-recibio').value.trim(),
-        cantidad,
-        precio_unitario: precio,
-        monto_total: cantidad * precio,
+        cantidad: cantidadTotal,
+        precio_unitario: precioPromedio,
+        monto_total: montoTotal,
         monto_pagado: parseFloat(document.getElementById('ent-pagado').value) || 0,
         forma_pago: document.getElementById('ent-forma-pago').value,
         notas: document.getElementById('ent-notas').value.trim()
       };
 
-      // Remember last price
-      Entregas.lastPrecio = precio;
+      let entregaId = editId;
 
-      console.log('Guardando entrega:', JSON.stringify(row));
-
-      let result;
       if (editId) {
-        result = await db.from('entregas').update(row).eq('id', editId);
+        const { error } = await db.from('entregas').update(row).eq('id', editId);
+        if (error) throw error;
+        // Delete old lines, insert new ones
+        await db.from('entrega_lineas').delete().eq('entrega_id', editId);
       } else {
-        result = await db.from('entregas').insert(row);
+        const { data, error } = await db.from('entregas').insert(row).select().single();
+        if (error) throw error;
+        entregaId = data.id;
       }
 
-      console.log('Resultado:', JSON.stringify(result));
+      // Insert lines
+      const lineRows = lines.map(l => ({ ...l, entrega_id: entregaId }));
+      const { error: lineErr } = await db.from('entrega_lineas').insert(lineRows);
+      if (lineErr) throw lineErr;
 
-      if (result.error) {
-        console.error('Error Supabase:', result.error);
-        showToast('Error al guardar: ' + result.error.message);
-        btn.disabled = false;
-        btn.textContent = editId ? 'Actualizar' : 'Guardar entrega';
-        return;
+      // If initial payment and not edit, register in pagos table
+      if (!editId && row.monto_pagado > 0 && row.forma_pago !== 'fiado') {
+        await db.from('pagos').insert({
+          entrega_id: entregaId,
+          monto: row.monto_pagado,
+          forma_pago: row.forma_pago,
+          registrado_por: Auth.currentUser.id
+        });
       }
 
       showToast(editId ? 'Entrega actualizada' : 'Entrega guardada');
       window.location.hash = '#/';
     } catch (err) {
-      console.error('Error inesperado en handleSave:', err);
-      showToast('Error inesperado: ' + (err.message || err));
+      console.error('Error guardando entrega:', err);
+      showToast('Error: ' + (err.message || err));
       btn.disabled = false;
       btn.textContent = editId ? 'Actualizar' : 'Guardar entrega';
     }
