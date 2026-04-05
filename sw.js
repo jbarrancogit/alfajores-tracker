@@ -1,4 +1,4 @@
-const CACHE_NAME = 'alfajores-v8';
+const CACHE_NAME = 'alfajores-v9';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -15,6 +15,8 @@ const STATIC_ASSETS = [
   './js/analisis.js',
   './js/excel.js',
   './js/config.js',
+  './js/ruta.js',
+  './js/portal.js',
   './manifest.json'
 ];
 
@@ -38,6 +40,8 @@ self.addEventListener('fetch', (e) => {
   if (e.request.url.includes('supabase.co')) return;
   if (e.request.url.includes('cdn.sheetjs.com')) return;
   if (e.request.url.includes('cdn.jsdelivr.net')) return;
+  if (e.request.url.includes('unpkg.com')) return;
+  if (e.request.url.includes('tile.openstreetmap.org')) return;
   e.respondWith(
     caches.match(e.request).then((cached) => cached || fetch(e.request))
   );

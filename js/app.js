@@ -5,6 +5,7 @@ const App = {
     '/': () => Dashboard.render(),
     '/entrega': () => Entregas.renderForm(),
     '/historial': () => Historial.render(),
+    '/ruta': () => Ruta.render(),
     '/analisis': () => Analisis.render(),
     '/config': () => Config.render(),
   },
@@ -27,14 +28,33 @@ const App = {
       } else {
         Auth.currentUser = null;
         Auth.currentProfile = null;
-        document.getElementById('bottom-nav').hidden = true;
-        Auth.renderLogin();
+        // Check if this is a portal route — no login needed
+        const hash = window.location.hash.slice(1) || '/';
+        if (hash.startsWith('/cliente/')) {
+          App.navigate();
+        } else {
+          document.getElementById('bottom-nav').hidden = true;
+          Auth.renderLogin();
+        }
       }
     });
   },
 
   navigate() {
     const hash = window.location.hash.slice(1) || '/';
+
+    // Portal route: /cliente/{token}
+    if (hash.startsWith('/cliente/')) {
+      const token = hash.replace('/cliente/', '');
+      App.currentRoute = '/cliente';
+      document.getElementById('bottom-nav').hidden = true;
+      Portal.render(token);
+      return;
+    }
+
+    // Regular routes require auth
+    if (!Auth.currentUser) return;
+
     const route = App.routes[hash];
     if (!route) {
       window.location.hash = '#/';
