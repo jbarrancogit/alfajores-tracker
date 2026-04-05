@@ -149,6 +149,8 @@ const Pagos = {
         </div>
         <button class="btn btn-primary btn-block mb-16"
                 onclick="Pagos.pagarTodo('${puntoId}', this)">Pagar todo (${fmtMoney(totalDeuda)})</button>
+        <button class="btn btn-secondary btn-block mb-16"
+                onclick="Pagos.sharePortal('${puntoId}')">Compartir cuenta</button>
         ${impagas.map(e => {
           const deuda = Number(e.monto_total) - Number(e.monto_pagado);
           const lineas = (e.entrega_lineas || []).map(l =>
@@ -174,6 +176,22 @@ const Pagos = {
       </div>
     `;
     document.body.appendChild(overlay);
+  },
+
+  async sharePortal(puntoId) {
+    const { data } = await db.from('puntos_entrega').select('client_token').eq('id', puntoId).single();
+    if (!data || !data.client_token) { showToast('Token no disponible'); return; }
+
+    const url = window.location.origin + window.location.pathname + '#/cliente/' + data.client_token;
+
+    if (navigator.share) {
+      navigator.share({ title: 'Cuenta corriente', url }).catch(() => {});
+    } else if (navigator.clipboard) {
+      await navigator.clipboard.writeText(url);
+      showToast('Link copiado al portapapeles');
+    } else {
+      prompt('Copiá este link:', url);
+    }
   },
 
   /** Pay all unpaid entregas for a punto */
