@@ -17,9 +17,14 @@ const Entregas = {
       existingLineas.forEach(l => { lineaMap[l.tipo_alfajor_id] = l; });
 
       const now = new Date();
+      const toLocalISO = (d) => {
+        const off = d.getTimezoneOffset();
+        const local = new Date(d.getTime() - off * 60000);
+        return local.toISOString().slice(0, 16);
+      };
       const fechaDefault = e.fecha_hora
-        ? new Date(e.fecha_hora).toISOString().slice(0, 16)
-        : now.toISOString().slice(0, 16);
+        ? toLocalISO(new Date(e.fecha_hora))
+        : toLocalISO(now);
 
       const tipos = Tipos.activos();
 
