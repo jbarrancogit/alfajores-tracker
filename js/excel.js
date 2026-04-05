@@ -105,6 +105,26 @@ const ExcelExport = {
     const ws2 = XLSX.utils.aoa_to_sheet([header2, ...rows2]);
     XLSX.utils.book_append_sheet(wb, ws1, 'Cantidades');
     XLSX.utils.book_append_sheet(wb, ws2, 'Ingresos y Ganancias');
+
+    // Hoja 3: Liquidación
+    const liqMap = {};
+    const usuariosMap = Analisis._data?.usuariosMap || {};
+    entregas.forEach(e => {
+      const key = e.repartidor_id;
+      if (!liqMap[key]) {
+        const u = usuariosMap[key] || {};
+        liqMap[key] = { nombre: u.nombre || e.usuarios?.nombre || '?', entregas: 0, vendido: 0, cobrado: 0, pct: Number(u.comision_pct) || 0 };
+      }
+      liqMap[key].entregas++;
+      liqMap[key].vendido += Number(e.monto_total);
+      liqMap[key].cobrado += Number(e.monto_pagado);
+    });
+    const liqRows = Object.values(liqMap).sort((a, b) => b.vendido - a.vendido);
+    const liqHeader = ['Repartidor', 'Entregas', 'Vendido', 'Cobrado', 'Comisión %', 'A pagar'];
+    const liqData = liqRows.map(r => [r.nombre, r.entregas, r.vendido, r.cobrado, r.pct, r.vendido * r.pct / 100]);
+    const ws3 = XLSX.utils.aoa_to_sheet([liqHeader, ...liqData]);
+    XLSX.utils.book_append_sheet(wb, ws3, 'Liquidación');
+
     XLSX.writeFile(wb, 'alfajores-reporte.xlsx');
 
     document.querySelector('.modal-overlay')?.remove();
