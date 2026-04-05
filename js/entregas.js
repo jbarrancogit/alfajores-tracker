@@ -329,6 +329,9 @@ const Entregas = {
               lat: pos.coords.latitude,
               lng: pos.coords.longitude
             }).eq('id', puntoId);
+            // Keep cache in sync so next delivery doesn't re-fire
+            const cached = Puntos.cache.find(p => p.id === puntoId);
+            if (cached) { cached.lat = pos.coords.latitude; cached.lng = pos.coords.longitude; }
           }, () => {});
         }
       }

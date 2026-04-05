@@ -108,7 +108,11 @@ const ExcelExport = {
 
     // Hoja 3: Liquidación
     const liqMap = {};
-    const usuariosMap = Analisis._data?.usuariosMap || {};
+    let usuariosMap = Analisis._data?.usuariosMap || {};
+    if (Object.keys(usuariosMap).length === 0) {
+      const { data: uData } = await db.from('usuarios').select('id, nombre, comision_pct');
+      (uData || []).forEach(u => { usuariosMap[u.id] = u; });
+    }
     entregas.forEach(e => {
       const key = e.repartidor_id;
       if (!liqMap[key]) {

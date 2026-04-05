@@ -87,7 +87,7 @@ const Portal = {
                 ${pagos.length > 0 ? `
                   <div class="portal-pagos">
                     ${pagos.map(p => `
-                      <div class="text-xs text-muted">Pago: ${fmtMoney(p.monto)} (${esc(p.forma_pago)}) — ${fmtDateTime(p.fecha)}</div>
+                      <div class="text-xs text-muted">Pago: ${fmtMoney(p.monto)} (${esc(p.forma_pago)})${p.fecha ? ' — ' + fmtDateTime(p.fecha) : ''}</div>
                     `).join('')}
                   </div>
                 ` : ''}
