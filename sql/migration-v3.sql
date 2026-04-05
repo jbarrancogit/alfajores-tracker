@@ -56,7 +56,11 @@ CREATE POLICY "portal_pagos_select" ON pagos
     )
   );
 
--- 7. RLS portal: puntos_entrega (leer su propio punto)
+-- 7. RLS portal: tipos_alfajor (datos de referencia, lectura pública)
+CREATE POLICY "portal_tipos_select" ON tipos_alfajor
+  FOR SELECT USING (true);
+
+-- 8. RLS portal: puntos_entrega (leer su propio punto)
 CREATE POLICY "portal_puntos_select" ON puntos_entrega
   FOR SELECT USING (
     client_token::text = coalesce(

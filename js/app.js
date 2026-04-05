@@ -22,7 +22,10 @@ const App = {
     db.auth.onAuthStateChange((event, session) => {
       if (session) {
         Auth.onLogin(session).then(() => {
-          document.getElementById('bottom-nav').hidden = false;
+          const hash = window.location.hash.slice(1) || '/';
+          if (!hash.startsWith('/cliente/')) {
+            document.getElementById('bottom-nav').hidden = false;
+          }
           App.navigate();
         });
       } else {
