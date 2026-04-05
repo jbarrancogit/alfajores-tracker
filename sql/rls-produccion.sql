@@ -44,7 +44,7 @@ CREATE POLICY "puntos_insert" ON puntos_entrega
   FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
 CREATE POLICY "puntos_update" ON puntos_entrega
-  FOR UPDATE USING (is_admin());
+  FOR UPDATE USING (auth.uid() IS NOT NULL);
 
 CREATE POLICY "puntos_delete" ON puntos_entrega
   FOR DELETE USING (is_admin());
