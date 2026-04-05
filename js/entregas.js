@@ -320,6 +320,18 @@ const Entregas = {
       }
 
       showToast(editId ? 'Entrega actualizada' : 'Entrega guardada');
+      // Capture GPS for punto if missing coords
+      if (puntoId && navigator.geolocation) {
+        const punto = Puntos.cache.find(p => p.id === puntoId);
+        if (punto && punto.lat == null) {
+          navigator.geolocation.getCurrentPosition(async (pos) => {
+            await db.from('puntos_entrega').update({
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude
+            }).eq('id', puntoId);
+          }, () => {});
+        }
+      }
       window.location.hash = '#/';
     } catch (err) {
       console.error('Error guardando entrega:', err);
