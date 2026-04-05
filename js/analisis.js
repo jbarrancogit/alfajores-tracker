@@ -40,6 +40,8 @@ const Analisis = {
       <div id="anal-repartidores"><div class="spinner mt-8"></div></div>
       <div class="section-title">Deudores</div>
       <div id="anal-deudores"><div class="spinner mt-8"></div></div>
+      <div class="section-title">Liquidación</div>
+      <div id="anal-liquidacion"><div class="spinner mt-8"></div></div>
     `;
   },
 
@@ -85,6 +87,9 @@ const Analisis = {
 
   async loadData() {
     await Tipos.fetchAll();
+    const { data: usuariosData } = await db.from('usuarios').select('id, nombre, comision_pct');
+    const usuariosMap = {};
+    (usuariosData || []).forEach(u => { usuariosMap[u.id] = u; });
     const { from, to } = Analisis._dateRange(Analisis.periodo);
 
     let query = db.from('entregas')
@@ -276,7 +281,44 @@ const Analisis = {
       }
     }
 
-    Analisis._data = { entregas, from, to };
+    // Liquidación
+    const liqMap = {};
+    entregas.forEach(e => {
+      const key = e.repartidor_id;
+      if (!liqMap[key]) {
+        const u = usuariosMap[key] || {};
+        liqMap[key] = { nombre: u.nombre || e.usuarios?.nombre || '?', entregas: 0, vendido: 0, cobrado: 0, pct: Number(u.comision_pct) || 0 };
+      }
+      liqMap[key].entregas++;
+      liqMap[key].vendido += Number(e.monto_total);
+      liqMap[key].cobrado += Number(e.monto_pagado);
+    });
+    const liqRank = Object.values(liqMap).sort((a, b) => b.vendido - a.vendido);
+
+    const liqEl = document.getElementById('anal-liquidacion');
+    if (liqEl) {
+      if (liqRank.length === 0) {
+        liqEl.innerHTML = '<p class="text-sm text-muted">Sin datos</p>';
+      } else {
+        liqEl.innerHTML = `
+          <div class="liq-table">
+            <div class="liq-header">
+              <span>Repartidor</span><span>Vendido</span><span>%</span><span>A pagar</span>
+            </div>
+            ${liqRank.map(r => `
+              <div class="liq-row">
+                <span>${esc(r.nombre)}</span>
+                <span>${fmtMoney(r.vendido)}</span>
+                <span>${r.pct}%</span>
+                <span style="color:var(--accent);font-weight:600">${fmtMoney(r.vendido * r.pct / 100)}</span>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+    }
+
+    Analisis._data = { entregas, from, to, usuariosMap };
   },
 
   _data: null,
