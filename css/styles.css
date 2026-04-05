@@ -794,3 +794,99 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   color: var(--text-secondary);
 }
 .detail-line-type { font-weight: 500; color: var(--text-primary); }
+
+/* ══════════════════════════════════════
+   V3 ADDITIONS
+   ══════════════════════════════════════ */
+
+/* ── Map ── */
+.ruta-marker { background: none; border: none; }
+.fab-location {
+  position: fixed;
+  bottom: calc(var(--nav-height) + 24px);
+  right: 16px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  z-index: 1000;
+  cursor: pointer;
+}
+.fab-location:active { transform: scale(0.92); }
+
+/* Leaflet popup dark override */
+.leaflet-popup-content-wrapper {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: 0 2px 12px rgba(0,0,0,.4) !important;
+}
+.leaflet-popup-tip { background: var(--bg-secondary) !important; }
+.leaflet-popup-content { margin: 10px 14px !important; font-size: 0.85rem; }
+
+/* ── Liquidación table ── */
+.liq-table { display: flex; flex-direction: column; gap: 2px; }
+.liq-header, .liq-row {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 0.7fr 1.5fr;
+  gap: 8px;
+  padding: 8px 4px;
+  align-items: center;
+  font-size: 0.85rem;
+}
+.liq-header {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+}
+.liq-row { border-bottom: 1px solid var(--border); }
+.liq-row:last-child { border-bottom: none; }
+
+/* ── Portal ── */
+.portal-screen { padding-bottom: 40px; }
+.portal-header {
+  text-align: center;
+  padding: 24px 0 16px;
+}
+.portal-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  margin-bottom: 8px;
+}
+.portal-entrega {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 8px;
+}
+.portal-entrega-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+}
+.portal-entrega-detail {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.portal-pagos {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.portal-footer {
+  text-align: center;
+  padding: 32px 0 16px;
+}
