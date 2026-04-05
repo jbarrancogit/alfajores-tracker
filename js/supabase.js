@@ -41,3 +41,12 @@ function showToast(msg) {
   toast.classList.add('visible');
   setTimeout(() => toast.classList.remove('visible'), 2500);
 }
+
+/** Create a Supabase client with a portal token header for client access */
+function createPortalClient(token) {
+  return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: {
+      headers: { 'x-client-token': token }
+    }
+  });
+}
