@@ -56,7 +56,13 @@ const Config = {
             <div class="config-item">
               <div class="config-item-info">
                 <div class="config-item-name">${esc(u.nombre)}</div>
-                <div class="config-item-detail">${esc(u.email || '')} · ${u.rol}</div>
+                <div class="config-item-detail">${esc(u.email || '')} · ${u.rol} · ${Number(u.comision_pct) || 0}% comisión</div>
+              </div>
+              <div class="config-item-actions">
+                <button class="btn-icon" style="width:32px;height:32px" title="Editar"
+                        onclick="Config.editUsuario('${u.id}')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
               </div>
             </div>
           `).join('')}
@@ -183,6 +189,45 @@ const Config = {
     Config.loadData();
   },
 
+  editUsuario(id) {
+    const slot = document.getElementById('config-invite-slot');
+    if (!slot) return;
+    db.from('usuarios').select('*').eq('id', id).single().then(({ data: u }) => {
+      if (!u) return;
+      slot.innerHTML = `
+        <div class="card mt-8">
+          <h3 class="mb-8">${esc(u.nombre)}</h3>
+          <div class="form-group">
+            <label class="form-label">Comisión %</label>
+            <input class="form-input" id="edit-user-comision" type="number" min="0" max="100" step="0.5"
+                   value="${Number(u.comision_pct) || 0}" inputmode="decimal">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Rol</label>
+            <div class="toggle-group">
+              <button type="button" class="toggle-btn ${u.rol === 'repartidor' ? 'active' : ''}"
+                      onclick="Config.setInviteRol(this, 'repartidor')">Repartidor</button>
+              <button type="button" class="toggle-btn ${u.rol === 'admin' ? 'active' : ''}"
+                      onclick="Config.setInviteRol(this, 'admin')">Admin</button>
+            </div>
+            <input type="hidden" id="invite-rol" value="${u.rol}">
+          </div>
+          <button class="btn btn-primary btn-block" onclick="Config.saveUsuario('${u.id}')">Guardar</button>
+        </div>
+      `;
+    });
+  },
+
+  async saveUsuario(id) {
+    const comision = parseFloat(document.getElementById('edit-user-comision').value) || 0;
+    const rol = document.getElementById('invite-rol').value;
+    const { error } = await db.from('usuarios').update({ comision_pct: comision, rol }).eq('id', id);
+    if (error) { showToast('Error: ' + error.message); return; }
+    showToast('Usuario actualizado');
+    document.getElementById('config-invite-slot').innerHTML = '';
+    Config.loadData();
+  },
+
   showInviteForm() {
     const slot = document.getElementById('config-invite-slot');
     if (!slot) return;
@@ -207,6 +252,11 @@ const Config = {
             <button type="button" class="toggle-btn" onclick="Config.setInviteRol(this, 'admin')">Admin</button>
           </div>
           <input type="hidden" id="invite-rol" value="repartidor">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Comisión %</label>
+          <input class="form-input" id="invite-comision" type="number" min="0" max="100" step="0.5"
+                 value="0" inputmode="decimal">
         </div>
         <button class="btn btn-primary btn-block" onclick="Config.sendInvite()">Crear usuario</button>
       </div>
@@ -262,7 +312,8 @@ const Config = {
           id: data.user.id,
           nombre: nombre,
           email: email,
-          rol: rol
+          rol: rol,
+          comision_pct: parseFloat(document.getElementById('invite-comision').value) || 0
         });
         // Ignore duplicate key error (user may already exist)
         if (insertErr && !insertErr.message.includes('duplicate')) throw insertErr;
