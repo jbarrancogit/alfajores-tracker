@@ -33,6 +33,9 @@ CREATE POLICY "usuarios_select" ON usuarios
 CREATE POLICY "usuarios_insert" ON usuarios
   FOR INSERT WITH CHECK (id = auth.uid() OR is_admin());
 
+CREATE POLICY "usuarios_update" ON usuarios
+  FOR UPDATE USING (is_admin());
+
 -- 4. PUNTOS_ENTREGA: todos leen; cualquier autenticado inserta; solo admin edita/borra
 CREATE POLICY "puntos_select" ON puntos_entrega
   FOR SELECT USING (true);
