@@ -15,13 +15,37 @@ const Config = {
   },
 
   async loadData() {
-    await Tipos.fetchAll();
+    await Promise.all([Tipos.fetchAll(), Puntos.fetchAll()]);
     const { data: usuarios } = await db.from('usuarios').select('*').order('nombre');
 
     const contentEl = document.getElementById('config-content');
     if (!contentEl) return;
 
+    const puntos = Puntos.cache;
+
     contentEl.innerHTML = `
+      <div class="config-section">
+        <div class="config-section-title">Puntos de entrega</div>
+        <div id="config-puntos">
+          ${puntos.map(p => `
+            <div class="config-item">
+              <div class="config-item-info">
+                <div class="config-item-name">${esc(p.nombre)}</div>
+                <div class="config-item-detail">
+                  ${p.direccion ? esc(p.direccion) + ' · ' : ''}${p.telefono ? 'Tel: ' + esc(p.telefono) : '<span style="color:var(--red)">Sin telefono</span>'}
+                </div>
+              </div>
+              <div class="config-item-actions">
+                <button class="btn-icon" style="width:32px;height:32px" title="Editar"
+                        onclick="Puntos.editPunto('${p.id}')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
       <div class="config-section">
         <div class="config-section-title">Tipos de alfajor</div>
         <div id="config-tipos">

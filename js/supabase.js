@@ -47,6 +47,10 @@ function createPortalClient(token) {
   return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: {
       headers: { 'x-client-token': token }
+    },
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false
     }
   });
 }

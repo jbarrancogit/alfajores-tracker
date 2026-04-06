@@ -610,8 +610,8 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   margin-bottom: 12px;
   min-height: 1.2em;
 }
-.pago-summary.warn { color: var(--warning); }
-.pago-summary.ok { color: var(--success); }
+.pago-summary.warn { color: var(--red); }
+.pago-summary.ok { color: var(--green); }
 
 /* ── Payment form (inline in modal) ── */
 .pago-form {
@@ -889,4 +889,49 @@ h3 { font-size: 1.1rem; font-weight: 600; }
 .portal-footer {
   text-align: center;
   padding: 32px 0 16px;
+}
+
+/* ── Searchable Punto Selector ── */
+.punto-selector {
+  position: relative;
+}
+.punto-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-top: 4px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.punto-option {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition);
+}
+.punto-option:last-child { border-bottom: none; }
+.punto-option:hover, .punto-option:active {
+  background: var(--bg-card-hover);
+}
+.punto-option-name {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+.punto-option-detail {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.punto-option-new {
+  background: var(--accent-bg);
+}
+.punto-option-new .punto-option-name {
+  color: var(--accent);
+  font-weight: 600;
 }

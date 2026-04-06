@@ -1,4 +1,6 @@
 const Entregas = {
+  _DRAFT_KEY: 'entrega_draft',
+
   renderForm(entrega) {
     const isEdit = !!entrega;
     const e = entrega || {};
@@ -28,12 +30,16 @@ const Entregas = {
 
       const tipos = Tipos.activos();
 
+      // Restore draft for new entregas
+      const draft = !isEdit ? Entregas._loadDraft() : null;
+
       // Admin can assign to another repartidor
       let vendedorSelector = '';
       if (Auth.isAdmin()) {
         const { data: usuarios } = await db.from('usuarios').select('id, nombre');
+        const selId = draft?.vendedorId || e.repartidor_id || Auth.currentUser.id;
         const opts = (usuarios || []).map(u =>
-          `<option value="${u.id}" ${u.id === (e.repartidor_id || Auth.currentUser.id) ? 'selected' : ''}>${esc(u.nombre)}</option>`
+          `<option value="${u.id}" ${u.id === selId ? 'selected' : ''}>${esc(u.nombre)}</option>`
         ).join('');
         vendedorSelector = `
           <div class="form-group">
@@ -42,6 +48,8 @@ const Entregas = {
           </div>
         `;
       }
+
+      const selectedPuntoId = draft?.puntoId || e.punto_entrega_id || '';
 
       App.setContent(`
         <div class="app-header">
@@ -52,27 +60,31 @@ const Entregas = {
         <form onsubmit="Entregas.handleSave(event, ${isEdit ? `'${e.id}'` : 'null'})">
           <div class="form-group">
             <label class="form-label">Punto de entrega</label>
-            ${Puntos.renderSelector(e.punto_entrega_id)}
+            ${Puntos.renderSelector(selectedPuntoId)}
           </div>
 
           <div id="nuevo-punto-fields" class="hidden">
             <div class="form-group">
-              <label class="form-label">Nombre del punto</label>
+              <label class="form-label">Nombre del punto *</label>
               <input class="form-input" id="ent-punto-nombre" placeholder="Ej: Kiosco Don Pedro">
             </div>
             <div class="form-group">
-              <label class="form-label">Dirección</label>
-              <input class="form-input" id="ent-punto-dir" placeholder="Calle y número">
+              <label class="form-label">Direccion</label>
+              <input class="form-input" id="ent-punto-dir" placeholder="Calle y numero">
             </div>
             <div class="form-group">
               <label class="form-label">Contacto</label>
               <input class="form-input" id="ent-punto-contacto" placeholder="Nombre de la persona">
             </div>
+            <div class="form-group">
+              <label class="form-label">Telefono *</label>
+              <input class="form-input" id="ent-punto-tel" type="tel" placeholder="Ej: 261-555-1234">
+            </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label">¿Quién recibió?</label>
-            <input class="form-input" id="ent-recibio" value="${esc(e.recibio || '')}" placeholder="Nombre de quien recibió">
+            <label class="form-label">Quien recibio?</label>
+            <input class="form-input" id="ent-recibio" value="${esc(draft?.recibio || e.recibio || '')}" placeholder="Nombre de quien recibio">
           </div>
 
           ${vendedorSelector}
@@ -81,9 +93,10 @@ const Entregas = {
           <div id="ent-lineas">
             ${tipos.map(t => {
               const linea = lineaMap[t.id];
-              const cant = linea ? linea.cantidad : '';
-              const precio = linea ? linea.precio_unitario : Tipos.getLastPrecio(t.id);
-              const costo = linea ? linea.costo_unitario : (Tipos.getLastCosto(t.id) || t.costo_default || '');
+              const draftLine = draft?.lines?.[t.id];
+              const cant = linea ? linea.cantidad : (draftLine?.cant || '');
+              const precio = linea ? linea.precio_unitario : (draftLine?.precio || Tipos.getLastPrecio(t.id));
+              const costo = linea ? linea.costo_unitario : (draftLine?.costo || Tipos.getLastCosto(t.id) || t.costo_default || '');
               return `
                 <div class="type-line" data-tipo-id="${t.id}">
                   <div class="type-line-name">
@@ -126,14 +139,14 @@ const Entregas = {
               <label class="form-label">Efectivo</label>
               <input class="form-input" id="ent-pago-efectivo" type="number" min="0" step="1"
                      placeholder="$0" inputmode="numeric"
-                     value="${e._pagoEfectivo || ''}"
+                     value="${draft?.pagoEfectivo || e._pagoEfectivo || ''}"
                      oninput="Entregas.calcPagado()">
             </div>
             <div class="form-group">
               <label class="form-label">Transferencia</label>
               <input class="form-input" id="ent-pago-transfer" type="number" min="0" step="1"
                      placeholder="$0" inputmode="numeric"
-                     value="${e._pagoTransfer || ''}"
+                     value="${draft?.pagoTransfer || e._pagoTransfer || ''}"
                      oninput="Entregas.calcPagado()">
             </div>
           </div>
@@ -141,12 +154,12 @@ const Entregas = {
 
           <div class="form-group">
             <label class="form-label">Notas</label>
-            <textarea class="form-textarea" id="ent-notas" placeholder="Observaciones (opcional)">${esc(e.notas || '')}</textarea>
+            <textarea class="form-textarea" id="ent-notas" placeholder="Observaciones (opcional)">${esc(draft?.notas || e.notas || '')}</textarea>
           </div>
 
           <div class="form-group">
             <label class="form-label">Fecha y hora</label>
-            <input class="form-input" id="ent-fecha" type="datetime-local" value="${fechaDefault}">
+            <input class="form-input" id="ent-fecha" type="datetime-local" value="${draft?.fecha || fechaDefault}">
           </div>
 
           <button class="btn btn-primary btn-block btn-lg mt-16" type="submit" id="ent-submit">
@@ -154,15 +167,32 @@ const Entregas = {
           </button>
         </form>
       `);
+
+      // Recalculate totals if draft restored values
+      if (draft) {
+        Entregas.calcTotal();
+        Entregas.calcPagado();
+        // Restore nuevo-punto fields if draft had __nuevo__ selected
+        if (draft.puntoId === '__nuevo__') {
+          document.getElementById('nuevo-punto-fields')?.classList.remove('hidden');
+          const npNombre = document.getElementById('ent-punto-nombre');
+          const npDir = document.getElementById('ent-punto-dir');
+          const npContacto = document.getElementById('ent-punto-contacto');
+          const npTel = document.getElementById('ent-punto-tel');
+          if (npNombre) npNombre.value = draft.nuevoPuntoNombre || '';
+          if (npDir) npDir.value = draft.nuevoPuntoDir || '';
+          if (npContacto) npContacto.value = draft.nuevoPuntoContacto || '';
+          if (npTel) npTel.value = draft.nuevoPuntoTel || '';
+        }
+      }
+
+      // Attach draft-save listeners for new entregas
+      if (!isEdit) {
+        Entregas._attachDraftListeners();
+      }
     });
 
     return '<div class="loading-screen"><div class="spinner"></div></div>';
-  },
-
-  onPuntoChange() {
-    const val = document.getElementById('ent-punto').value;
-    const fields = document.getElementById('nuevo-punto-fields');
-    fields.classList.toggle('hidden', val !== '__nuevo__');
   },
 
   toggleCostos(ev) {
@@ -228,6 +258,62 @@ const Entregas = {
     return lines;
   },
 
+  /** Save current form state to localStorage */
+  _saveDraft() {
+    const lines = {};
+    document.querySelectorAll('.type-line').forEach(lineEl => {
+      const tipoId = lineEl.dataset.tipoId;
+      lines[tipoId] = {
+        cant: lineEl.querySelector('.ent-line-cant').value,
+        precio: lineEl.querySelector('.ent-line-precio').value,
+        costo: lineEl.querySelector('.ent-line-costo').value
+      };
+    });
+    const draft = {
+      puntoId: document.getElementById('ent-punto')?.value || '',
+      recibio: document.getElementById('ent-recibio')?.value || '',
+      vendedorId: document.getElementById('ent-vendedor')?.value || '',
+      lines,
+      pagoEfectivo: document.getElementById('ent-pago-efectivo')?.value || '',
+      pagoTransfer: document.getElementById('ent-pago-transfer')?.value || '',
+      notas: document.getElementById('ent-notas')?.value || '',
+      fecha: document.getElementById('ent-fecha')?.value || '',
+      nuevoPuntoNombre: document.getElementById('ent-punto-nombre')?.value || '',
+      nuevoPuntoDir: document.getElementById('ent-punto-dir')?.value || '',
+      nuevoPuntoContacto: document.getElementById('ent-punto-contacto')?.value || '',
+      nuevoPuntoTel: document.getElementById('ent-punto-tel')?.value || '',
+      savedAt: Date.now()
+    };
+    try {
+      localStorage.setItem(Entregas._DRAFT_KEY, JSON.stringify(draft));
+    } catch (_) {}
+  },
+
+  _loadDraft() {
+    try {
+      const raw = localStorage.getItem(Entregas._DRAFT_KEY);
+      if (!raw) return null;
+      const draft = JSON.parse(raw);
+      // Discard drafts older than 24 hours
+      if (Date.now() - draft.savedAt > 24 * 60 * 60 * 1000) {
+        localStorage.removeItem(Entregas._DRAFT_KEY);
+        return null;
+      }
+      return draft;
+    } catch (_) { return null; }
+  },
+
+  _clearDraft() {
+    localStorage.removeItem(Entregas._DRAFT_KEY);
+  },
+
+  _attachDraftListeners() {
+    const form = document.querySelector('form');
+    if (!form) return;
+    form.addEventListener('input', () => Entregas._saveDraft());
+    form.addEventListener('change', () => Entregas._saveDraft());
+  },
+
   async handleSave(ev, editId) {
     ev.preventDefault();
     const btn = document.getElementById('ent-submit');
@@ -240,8 +326,15 @@ const Entregas = {
       // Create new punto if needed
       if (puntoId === '__nuevo__') {
         const nombre = document.getElementById('ent-punto-nombre').value.trim();
+        const telefono = document.getElementById('ent-punto-tel').value.trim();
         if (!nombre) {
-          showToast('Ingresá el nombre del punto');
+          showToast('Ingresa el nombre del punto');
+          btn.disabled = false;
+          btn.textContent = editId ? 'Actualizar' : 'Guardar entrega';
+          return;
+        }
+        if (!telefono) {
+          showToast('El telefono del punto es obligatorio');
           btn.disabled = false;
           btn.textContent = editId ? 'Actualizar' : 'Guardar entrega';
           return;
@@ -249,14 +342,15 @@ const Entregas = {
         const punto = await Puntos.create({
           nombre,
           direccion: document.getElementById('ent-punto-dir').value.trim(),
-          contacto: document.getElementById('ent-punto-contacto').value.trim()
+          contacto: document.getElementById('ent-punto-contacto').value.trim(),
+          telefono
         });
         puntoId = punto.id;
       }
 
       const lines = Entregas._collectLines();
       if (lines.length === 0) {
-        showToast('Ingresá al menos un tipo de alfajor');
+        showToast('Ingresa al menos un tipo de alfajor');
         btn.disabled = false;
         btn.textContent = editId ? 'Actualizar' : 'Guardar entrega';
         return;
@@ -318,6 +412,9 @@ const Entregas = {
           await db.from('pagos').insert(pagosToInsert);
         }
       }
+
+      // Clear draft on successful save
+      Entregas._clearDraft();
 
       showToast(editId ? 'Entrega actualizada' : 'Entrega guardada');
       // Capture GPS for punto if missing coords
