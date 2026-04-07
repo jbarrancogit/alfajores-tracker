@@ -77,7 +77,7 @@ const Entregas = {
               <input class="form-input" id="ent-punto-contacto" placeholder="Nombre de la persona">
             </div>
             <div class="form-group">
-              <label class="form-label">Telefono *</label>
+              <label class="form-label">Telefono</label>
               <input class="form-input" id="ent-punto-tel" type="tel" placeholder="Ej: 261-555-1234">
             </div>
           </div>
@@ -329,12 +329,6 @@ const Entregas = {
         const telefono = document.getElementById('ent-punto-tel').value.trim();
         if (!nombre) {
           showToast('Ingresa el nombre del punto');
-          btn.disabled = false;
-          btn.textContent = editId ? 'Actualizar' : 'Guardar entrega';
-          return;
-        }
-        if (!telefono) {
-          showToast('El telefono del punto es obligatorio');
           btn.disabled = false;
           btn.textContent = editId ? 'Actualizar' : 'Guardar entrega';
           return;

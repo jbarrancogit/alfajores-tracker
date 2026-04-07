@@ -150,7 +150,7 @@ const Puntos = {
           <input class="form-input" id="edit-punto-contacto" value="${esc(p.contacto || '')}">
         </div>
         <div class="form-group">
-          <label class="form-label">Telefono *</label>
+          <label class="form-label">Telefono</label>
           <input class="form-input" id="edit-punto-tel" type="tel" value="${esc(p.telefono || '')}"
                  placeholder="Ej: 261-555-1234">
         </div>
@@ -168,7 +168,6 @@ const Puntos = {
     const nombre = document.getElementById('edit-punto-nombre').value.trim();
     const telefono = document.getElementById('edit-punto-tel').value.trim();
     if (!nombre) { showToast('Ingresa el nombre'); return; }
-    if (!telefono) { showToast('El telefono es obligatorio'); return; }
 
     try {
       await Puntos.update(id, {
