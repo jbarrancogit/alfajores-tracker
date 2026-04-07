@@ -2,12 +2,13 @@ const Analisis = {
   periodo: 'semana',
   customFrom: null,
   customTo: null,
+  vendedorId: '',
 
   render() {
     if (!Auth.isAdmin()) {
       return '<div class="empty-state"><p>Solo el administrador puede ver análisis</p></div>';
     }
-    Analisis.loadData();
+    Analisis._initRender();
     return `
       <div class="app-header">
         <h1>Análisis</h1>
@@ -28,6 +29,9 @@ const Analisis = {
           <input class="form-input" type="date" id="anal-to" onchange="Analisis.loadData()">
         </div>
       </div>
+      <select class="form-select mb-8" id="anal-vendedor" onchange="Analisis.onVendedorChange()" style="font-size:0.85rem">
+        <option value="">Todos los vendedores</option>
+      </select>
       <div id="anal-metrics" class="metrics-grid-6">
         ${Array(6).fill('<div class="metric-card"><div class="metric-value">-</div><div class="metric-label">...</div></div>').join('')}
       </div>
@@ -43,6 +47,23 @@ const Analisis = {
       <div class="section-title">Liquidación</div>
       <div id="anal-liquidacion"><div class="spinner mt-8"></div></div>
     `;
+  },
+
+  async _initRender() {
+    const { data: usuarios } = await db.from('usuarios').select('id, nombre').order('nombre');
+    const sel = document.getElementById('anal-vendedor');
+    if (sel && usuarios) {
+      const opts = usuarios.map(u =>
+        `<option value="${u.id}" ${u.id === Analisis.vendedorId ? 'selected' : ''}>${esc(u.nombre)}</option>`
+      ).join('');
+      sel.innerHTML = `<option value="">Todos los vendedores</option>${opts}`;
+    }
+    Analisis.loadData();
+  },
+
+  onVendedorChange() {
+    Analisis.vendedorId = document.getElementById('anal-vendedor')?.value || '';
+    Analisis.loadData();
   },
 
   setPeriod(chip, periodo) {
@@ -96,6 +117,7 @@ const Analisis = {
       .select('*, entrega_lineas(*, tipos_alfajor(nombre)), puntos_entrega(nombre), usuarios(nombre)');
     if (from) query = query.gte('fecha_hora', from.toISOString());
     query = query.lte('fecha_hora', to.toISOString());
+    if (Analisis.vendedorId) query = query.eq('repartidor_id', Analisis.vendedorId);
     const { data } = await query;
     const entregas = data || [];
 
@@ -246,8 +268,10 @@ const Analisis = {
       }
     }
 
-    const { data: allE } = await db.from('entregas')
+    let deudaQuery = db.from('entregas')
       .select('punto_entrega_id, monto_total, monto_pagado, puntos_entrega(nombre)');
+    if (Analisis.vendedorId) deudaQuery = deudaQuery.eq('repartidor_id', Analisis.vendedorId);
+    const { data: allE } = await deudaQuery;
     const deudaMap = {};
     (allE || []).forEach(e => {
       if (!e.punto_entrega_id) return;
