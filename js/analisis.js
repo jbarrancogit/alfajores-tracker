@@ -3,6 +3,8 @@ const Analisis = {
   customFrom: null,
   customTo: null,
   vendedorId: '',
+  selectedDate: null,
+  calendarMonth: null,
 
   render() {
     if (!Auth.isAdmin()) {
@@ -16,6 +18,7 @@ const Analisis = {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         </button>
       </div>
+      <div id="anal-calendar"></div>
       <div class="filter-bar" id="anal-period-bar">
         <button class="filter-chip" onclick="Analisis.setPeriod(this, 'hoy')">Hoy</button>
         <button class="filter-chip active" onclick="Analisis.setPeriod(this, 'semana')">Semana</button>
@@ -58,7 +61,95 @@ const Analisis = {
       ).join('');
       sel.innerHTML = `<option value="">Todos los vendedores</option>${opts}`;
     }
+    Analisis._updateCalendar();
     Analisis.loadData();
+  },
+
+  _renderCalendar() {
+    const now = new Date();
+    if (!Analisis.calendarMonth) Analisis.calendarMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const cm = Analisis.calendarMonth;
+    const year = cm.getFullYear();
+    const m = cm.getMonth();
+    const firstDay = new Date(year, m, 1);
+    const daysInMonth = new Date(year, m + 1, 0).getDate();
+
+    // Monday-based: convert JS getDay (0=Sun) to 0=Mon
+    let startDow = firstDay.getDay();
+    startDow = startDow === 0 ? 6 : startDow - 1;
+
+    const todayStr = now.toISOString().slice(0, 10);
+    const selectedStr = Analisis.selectedDate
+      ? Analisis.selectedDate.toISOString().slice(0, 10) : '';
+
+    const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                         'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+    let cells = '';
+    // Previous month filler days
+    const prevMonth = new Date(year, m, 0);
+    for (let i = 0; i < startDow; i++) {
+      const d = prevMonth.getDate() - startDow + i + 1;
+      cells += `<div class="cal-day cal-day-outside">${d}</div>`;
+    }
+    // Current month days
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      let cls = 'cal-day';
+      if (dateStr === todayStr) cls += ' cal-day-today';
+      if (dateStr === selectedStr) cls += ' cal-day-selected';
+      cells += `<div class="${cls}" onclick="Analisis.selectDay('${dateStr}')">${d}</div>`;
+    }
+    // Next month filler days
+    const totalCells = startDow + daysInMonth;
+    const remaining = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+    for (let i = 1; i <= remaining; i++) {
+      cells += `<div class="cal-day cal-day-outside">${i}</div>`;
+    }
+
+    return `
+      <div class="calendar">
+        <div class="cal-header">
+          <button class="btn-icon cal-nav" onclick="Analisis.prevMonth()">&lsaquo;</button>
+          <span class="cal-title">${monthNames[m]} ${year}</span>
+          <button class="btn-icon cal-nav" onclick="Analisis.nextMonth()">&rsaquo;</button>
+        </div>
+        <div class="cal-grid">
+          <div class="cal-dow">L</div><div class="cal-dow">M</div><div class="cal-dow">M</div>
+          <div class="cal-dow">J</div><div class="cal-dow">V</div><div class="cal-dow">S</div><div class="cal-dow">D</div>
+          ${cells}
+        </div>
+      </div>
+    `;
+  },
+
+  _updateCalendar() {
+    const el = document.getElementById('anal-calendar');
+    if (el) el.innerHTML = Analisis._renderCalendar();
+  },
+
+  selectDay(dateStr) {
+    Analisis.selectedDate = new Date(dateStr + 'T00:00:00');
+    Analisis.periodo = 'dia';
+    // Deselect all period chips
+    document.querySelectorAll('#anal-period-bar .filter-chip').forEach(c => c.classList.remove('active'));
+    // Hide custom range if visible
+    const customRange = document.getElementById('anal-custom-range');
+    if (customRange) customRange.classList.add('hidden');
+    Analisis._updateCalendar();
+    Analisis.loadData();
+  },
+
+  prevMonth() {
+    const cm = Analisis.calendarMonth || new Date();
+    Analisis.calendarMonth = new Date(cm.getFullYear(), cm.getMonth() - 1, 1);
+    Analisis._updateCalendar();
+  },
+
+  nextMonth() {
+    const cm = Analisis.calendarMonth || new Date();
+    Analisis.calendarMonth = new Date(cm.getFullYear(), cm.getMonth() + 1, 1);
+    Analisis._updateCalendar();
   },
 
   onVendedorChange() {
@@ -70,6 +161,8 @@ const Analisis = {
     document.querySelectorAll('#anal-period-bar .filter-chip').forEach(c => c.classList.remove('active'));
     chip.classList.add('active');
     Analisis.periodo = periodo;
+    Analisis.selectedDate = null;
+    Analisis._updateCalendar();
     const customRange = document.getElementById('anal-custom-range');
     if (customRange) customRange.classList.toggle('hidden', periodo !== 'custom');
     if (periodo !== 'custom') Analisis.loadData();
@@ -80,7 +173,12 @@ const Analisis = {
     let from = null;
     let to = now;
 
-    if (periodo === 'hoy') {
+    if (periodo === 'dia' && Analisis.selectedDate) {
+      from = new Date(Analisis.selectedDate);
+      from.setHours(0, 0, 0, 0);
+      to = new Date(Analisis.selectedDate);
+      to.setHours(23, 59, 59, 999);
+    } else if (periodo === 'hoy') {
       from = new Date(now); from.setHours(0, 0, 0, 0);
     } else if (periodo === 'semana') {
       from = new Date(now); from.setDate(from.getDate() - 7);
