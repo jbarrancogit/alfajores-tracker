@@ -470,7 +470,7 @@ const Entregas = {
       window.location.hash = '#/';
     } catch (err) {
       console.error('Error guardando entrega:', err);
-      showToast('Error: ' + (err.message || err));
+      showToast('Error: ' + friendlyError(err));
       btn.disabled = false;
       btn.textContent = editId ? 'Actualizar' : 'Guardar entrega';
     }

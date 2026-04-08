@@ -14,6 +14,8 @@ const App = {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(() => {});
     }
+    window.addEventListener('online', () => showToast('Conexión restaurada'));
+    window.addEventListener('offline', () => showToast('Sin conexión a internet'));
     window.addEventListener('hashchange', () => App.navigate());
 
     document.querySelectorAll('.nav-btn').forEach(btn => {

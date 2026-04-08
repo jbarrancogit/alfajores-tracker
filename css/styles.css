@@ -351,6 +351,7 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   pointer-events: none;
 }
 .toast.visible { transform: translateX(-50%) translateY(0); }
+.toast.toast-error { background: var(--red); color: #fff; }
 
 /* ── Modal ── */
 .modal-overlay {
@@ -958,8 +959,8 @@ h3 { font-size: 1.1rem; font-weight: 600; }
 }
 .cal-nav {
   font-size: 1.4rem;
-  min-height: 32px;
-  min-width: 32px;
+  min-height: 44px;
+  min-width: 44px;
   padding: 0;
 }
 .cal-grid {

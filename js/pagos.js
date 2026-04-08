@@ -115,7 +115,7 @@ const Pagos = {
       else if (App.currentRoute === '/analisis') Analisis.loadData();
     } catch (err) {
       console.error('Error registrando pago:', err);
-      showToast('Error: ' + (err.message || err));
+      showToast('Error: ' + friendlyError(err));
       if (btn) btn.disabled = false;
     }
   },
@@ -251,7 +251,7 @@ const Pagos = {
       else if (App.currentRoute === '/analisis') Analisis.loadData();
     } catch (err) {
       console.error('Error eliminando pago:', err);
-      showToast('Error: ' + (err.message || err));
+      showToast('Error: ' + friendlyError(err));
     }
   },
 

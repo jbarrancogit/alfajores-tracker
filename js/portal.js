@@ -8,19 +8,20 @@ const Portal = {
 
     document.getElementById('bottom-nav').hidden = true;
 
-    const { data: puntos } = await Portal.portalDb
+    const { data: puntos, error: pErr } = await Portal.portalDb
       .from('puntos_entrega')
       .select('id, nombre, created_at')
       .limit(1);
 
-    if (!puntos || puntos.length === 0) {
+    if (pErr || !puntos || puntos.length === 0) {
+      const msg = pErr ? 'Error de conexión. Intentá de nuevo.' : 'Link inválido o expirado';
       App.setContent(`
         <div class="portal-screen">
           <div class="portal-header">
             <img src="assets/icon-192.png" alt="Logo" class="portal-logo">
             <h1>Alfajores Tracker</h1>
           </div>
-          <div class="empty-state"><p>Link inválido o expirado</p></div>
+          <div class="empty-state"><p>${msg}</p></div>
         </div>
       `);
       return;

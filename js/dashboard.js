@@ -94,7 +94,7 @@ const Dashboard = {
         deudoresEl.innerHTML = '<p class="text-sm text-muted" style="padding:8px 0">Sin deudas pendientes</p>';
       } else {
         deudoresEl.innerHTML = deudores.map(d => `
-          <div class="list-item" onclick="Pagos.showDeudorModal('${d.id}', '${esc(d.nombre)}')">
+          <div class="list-item" onclick="Pagos.showDeudorModal('${d.id}', '${escJs(d.nombre)}')">
             <div class="list-item-content">
               <div class="list-item-title">${esc(d.nombre)}</div>
               <div class="list-item-subtitle">${d.entregas} entregas pendientes</div>

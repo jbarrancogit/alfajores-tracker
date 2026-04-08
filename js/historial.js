@@ -199,6 +199,7 @@ const Historial = {
           <button class="btn btn-secondary w-full" onclick="this.closest('.modal-overlay').remove()">Cerrar</button>
           ${saldo > 0 ? `<button class="btn btn-primary w-full" id="detail-pagar-btn">Registrar pago</button>` : ''}
           <button class="btn btn-secondary w-full" id="edit-entrega-btn">Editar</button>
+          ${Auth.isAdmin() ? `<button class="btn btn-secondary w-full text-red" id="delete-entrega-btn">Eliminar</button>` : ''}
         </div>
         <div id="detail-pago-slot"></div>
       </div>
@@ -215,6 +216,23 @@ const Historial = {
       overlay.remove();
       Entregas.renderForm(e);
     };
+    const delBtn = document.getElementById('delete-entrega-btn');
+    if (delBtn) {
+      delBtn.onclick = async () => {
+        if (!confirm('¿Eliminar esta entrega y todos sus pagos?')) return;
+        delBtn.disabled = true;
+        try {
+          const { error } = await db.from('entregas').delete().eq('id', e.id);
+          if (error) throw error;
+          showToast('Entrega eliminada');
+          overlay.remove();
+          Historial.fetchEntregas();
+        } catch (err) {
+          showToast('Error: ' + friendlyError(err));
+          delBtn.disabled = false;
+        }
+      };
+    }
    } catch (err) {
     console.error('Historial detail error:', err);
     showToast('Error cargando detalle');

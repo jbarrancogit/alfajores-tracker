@@ -282,13 +282,15 @@ const Analisis = {
 
     const compEl = document.getElementById('anal-comparison');
     if (compEl && (prevVendido > 0 || prevGanancia > 0 || prevUnidades > 0)) {
-      const pctVentas = prevVendido > 0 ? ((totalVendido - prevVendido) / prevVendido * 100).toFixed(0) : '—';
-      const pctGanancia = prevGanancia > 0 ? ((totalGanancia - prevGanancia) / prevGanancia * 100).toFixed(0) : '—';
-      const pctUnidades = prevUnidades > 0 ? ((totalUnidades - prevUnidades) / prevUnidades * 100).toFixed(0) : '—';
+      const pctVentas = prevVendido > 0 ? Math.round((totalVendido - prevVendido) / prevVendido * 100) : null;
+      const pctGanancia = prevGanancia > 0 ? Math.round((totalGanancia - prevGanancia) / prevGanancia * 100) : null;
+      const pctUnidades = prevUnidades > 0 ? Math.round((totalUnidades - prevUnidades) / prevUnidades * 100) : null;
+      const fmtPct = v => v === null ? '—' : `${v >= 0 ? '+' : ''}${v}%`;
+      const clsPct = v => v === null ? '' : (v >= 0 ? 'positive' : 'negative');
       compEl.innerHTML = `
-        <div class="comparison-chip">Ventas <span class="${pctVentas >= 0 ? 'positive' : 'negative'}">${pctVentas >= 0 ? '+' : ''}${pctVentas}%</span></div>
-        <div class="comparison-chip">Ganancia <span class="${pctGanancia >= 0 ? 'positive' : 'negative'}">${pctGanancia >= 0 ? '+' : ''}${pctGanancia}%</span></div>
-        <div class="comparison-chip">Uds <span class="${pctUnidades >= 0 ? 'positive' : 'negative'}">${pctUnidades >= 0 ? '+' : ''}${pctUnidades}%</span></div>
+        <div class="comparison-chip">Ventas <span class="${clsPct(pctVentas)}">${fmtPct(pctVentas)}</span></div>
+        <div class="comparison-chip">Ganancia <span class="${clsPct(pctGanancia)}">${fmtPct(pctGanancia)}</span></div>
+        <div class="comparison-chip">Uds <span class="${clsPct(pctUnidades)}">${fmtPct(pctUnidades)}</span></div>
       `;
     } else if (compEl) {
       compEl.innerHTML = '<p class="text-xs text-muted">Sin datos del período anterior para comparar</p>';
@@ -339,7 +341,7 @@ const Analisis = {
         rankingEl.innerHTML = '<p class="text-sm text-muted">Sin datos</p>';
       } else {
         rankingEl.innerHTML = puntoRank.map(p => `
-          <div class="list-item" ${p.id !== '__temp__' && p.deuda > 0 ? `onclick="Pagos.showDeudorModal('${p.id}', '${esc(p.nombre)}')"` : ''}>
+          <div class="list-item" ${p.id !== '__temp__' && p.deuda > 0 ? `onclick="Pagos.showDeudorModal('${p.id}', '${escJs(p.nombre)}')"` : ''}>
             <div class="list-item-content">
               <div class="list-item-title">${esc(p.nombre)}</div>
               <div class="list-item-subtitle">${p.cantidad} uds</div>
@@ -413,7 +415,7 @@ const Analisis = {
         deudoresEl.innerHTML = '<p class="text-sm text-muted">Sin deudas pendientes</p>';
       } else {
         deudoresEl.innerHTML = deudores.map(d => `
-          <div class="list-item" onclick="Pagos.showDeudorModal('${d.id}', '${esc(d.nombre)}')">
+          <div class="list-item" onclick="Pagos.showDeudorModal('${d.id}', '${escJs(d.nombre)}')">
             <div class="list-item-content">
               <div class="list-item-title">${esc(d.nombre)}</div>
               <div class="list-item-subtitle">${d.entregas} entregas pendientes</div>

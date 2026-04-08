@@ -23,6 +23,23 @@ function esc(s) {
   return d.innerHTML;
 }
 
+/** Escape for embedding in JS string inside onclick attributes */
+function escJs(s) {
+  if (s == null) return '';
+  return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+/** User-friendly DB error message */
+function friendlyError(err) {
+  const msg = err?.message || String(err);
+  if (msg.includes('duplicate key')) return 'Ya existe un registro con esos datos';
+  if (msg.includes('violates foreign key')) return 'No se puede eliminar, hay datos relacionados';
+  if (msg.includes('violates check')) return 'Valor fuera de rango permitido';
+  if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) return 'Sin conexión a internet';
+  if (msg.length > 80) return 'Error del servidor';
+  return msg;
+}
+
 /** Format number as ARS currency */
 function fmtMoney(n) {
   return '$' + Number(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -56,8 +73,9 @@ function showToast(msg) {
     document.body.appendChild(toast);
   }
   toast.textContent = msg;
+  toast.classList.toggle('toast-error', /error|sin conexi/i.test(msg));
   toast.classList.add('visible');
-  setTimeout(() => toast.classList.remove('visible'), 2500);
+  setTimeout(() => { toast.classList.remove('visible'); toast.classList.remove('toast-error'); }, 2500);
 }
 
 /** Create a Supabase client with a portal token header for client access */
