@@ -237,12 +237,15 @@ const Analisis = {
       });
     }
 
-    const prev = Analisis._prevRange(from, to);
-    let prevQ = db.from('entregas')
-      .select('*, entrega_lineas(cantidad, precio_unitario, costo_unitario)');
-    prevQ = prevQ.gte('fecha_hora', prev.from.toISOString()).lt('fecha_hora', prev.to.toISOString());
-    const { data: prevData } = await prevQ;
-    const prevEntregas = prevData || [];
+    let prevEntregas = [];
+    if (from) {
+      const prev = Analisis._prevRange(from, to);
+      let prevQ = db.from('entregas')
+        .select('*, entrega_lineas(cantidad, precio_unitario, costo_unitario)');
+      prevQ = prevQ.gte('fecha_hora', prev.from.toISOString()).lt('fecha_hora', prev.to.toISOString());
+      const { data: prevData } = await prevQ;
+      prevEntregas = prevData || [];
+    }
 
     const totalVendido = entregas.reduce((s, e) => s + Number(e.monto_total), 0);
     const totalCobrado = entregas.reduce((s, e) => s + Number(e.monto_pagado), 0);

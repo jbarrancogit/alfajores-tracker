@@ -1,6 +1,8 @@
 const ExcelExport = {
-  async _fetchPagosMap() {
-    const { data } = await db.from('pagos').select('entrega_id, monto, forma_pago');
+  async _fetchPagosMap(entregaIds) {
+    let query = db.from('pagos').select('entrega_id, monto, forma_pago');
+    if (entregaIds && entregaIds.length > 0) query = query.in('entrega_id', entregaIds);
+    const { data } = await query;
     const map = {};
     (data || []).forEach(p => {
       if (!map[p.entrega_id]) map[p.entrega_id] = { efectivo: 0, transferencia: 0 };
@@ -55,7 +57,7 @@ const ExcelExport = {
     const entregas = await ExcelExport._fetchData();
     const tipos = Tipos.activos();
     const tipoNames = tipos.map(t => t.nombre);
-    const pagosMap = await ExcelExport._fetchPagosMap();
+    const pagosMap = await ExcelExport._fetchPagosMap(entregas.map(e => e.id));
 
     const header1 = ['Fecha', 'Cliente', 'Zona', ...tipoNames, 'Vendedor', 'Semana'];
     const rows1 = entregas.map(e => {
@@ -151,7 +153,7 @@ const ExcelExport = {
   async exportCrudo() {
     showToast('Generando datos...');
     const entregas = await ExcelExport._fetchData();
-    const pagosMap = await ExcelExport._fetchPagosMap();
+    const pagosMap = await ExcelExport._fetchPagosMap(entregas.map(e => e.id));
 
     const header = ['Fecha', 'Punto', 'Dirección', 'Recibió', 'Tipo Alfajor', 'Cantidad',
                     'Precio Venta', 'Costo', 'Subtotal Venta', 'Ganancia', 'Pagado', 'Debe',
