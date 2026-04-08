@@ -402,21 +402,14 @@ const Entregas = {
         const { error } = await db.from('entregas').update(editRow).eq('id', editId);
         if (error) throw error;
 
-        // Fetch existing line IDs before inserting new ones
-        const { data: oldLines } = await db.from('entrega_lineas')
-          .select('id')
-          .eq('entrega_id', editId);
-        const oldLineIds = (oldLines || []).map(l => l.id);
+        // Delete old lines first to avoid unique constraint violation
+        // (entrega_id + tipo_alfajor_id must be unique)
+        await db.from('entrega_lineas').delete().eq('entrega_id', editId);
 
-        // Insert new lines first
+        // Insert new lines
         const lineRows = lines.map(l => ({ ...l, entrega_id: entregaId }));
         const { error: lineErr } = await db.from('entrega_lineas').insert(lineRows);
         if (lineErr) throw lineErr;
-
-        // Only delete old lines after successful insert
-        if (oldLineIds.length > 0) {
-          await db.from('entrega_lineas').delete().in('id', oldLineIds);
-        }
       } else {
         const { data, error } = await db.from('entregas').insert(row).select().single();
         if (error) throw error;
