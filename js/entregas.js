@@ -210,6 +210,7 @@ const Entregas = {
       const precio = parseFloat(line.querySelector('.ent-line-precio').value) || 0;
       total += cant * precio;
     });
+    total = Math.round(total * 100) / 100;
     document.getElementById('ent-total').value = total;
   },
 
@@ -251,7 +252,12 @@ const Entregas = {
       const tipo = Tipos.cache.find(t => t.id === tipoId);
       const costo = costoInput || (tipo ? parseFloat(tipo.costo_default) || 0 : 0);
       if (cant > 0) {
-        lines.push({ tipo_alfajor_id: tipoId, cantidad: cant, precio_unitario: precio, costo_unitario: costo });
+        lines.push({
+          tipo_alfajor_id: tipoId,
+          cantidad: cant,
+          precio_unitario: Math.round(precio * 100) / 100,
+          costo_unitario: Math.round(costo * 100) / 100
+        });
         Tipos.saveLast(tipoId, precio, costo);
       }
     });
@@ -286,7 +292,7 @@ const Entregas = {
     };
     try {
       localStorage.setItem(Entregas._DRAFT_KEY, JSON.stringify(draft));
-    } catch (_) {}
+    } catch (_) { showToast('No se pudo guardar borrador'); }
   },
 
   _loadDraft() {
@@ -298,6 +304,17 @@ const Entregas = {
       if (Date.now() - draft.savedAt > 24 * 60 * 60 * 1000) {
         localStorage.removeItem(Entregas._DRAFT_KEY);
         return null;
+      }
+      // Filter out lines referencing deactivated/deleted tipos
+      if (draft.lines) {
+        const activoIds = new Set(Tipos.activos().map(t => t.id));
+        for (const tipoId of Object.keys(draft.lines)) {
+          if (!activoIds.has(tipoId)) delete draft.lines[tipoId];
+        }
+      }
+      // Clear punto if it no longer exists in cache
+      if (draft.puntoId && draft.puntoId !== '__nuevo__' && !Puntos.cache.find(p => p.id === draft.puntoId)) {
+        draft.puntoId = '';
       }
       return draft;
     } catch (_) { return null; }
@@ -352,7 +369,7 @@ const Entregas = {
 
       // Calculate aggregates
       const cantidadTotal = lines.reduce((s, l) => s + l.cantidad, 0);
-      const montoTotal = lines.reduce((s, l) => s + l.cantidad * l.precio_unitario, 0);
+      const montoTotal = Math.round(lines.reduce((s, l) => s + l.cantidad * l.precio_unitario, 0) * 100) / 100;
       const precioPromedio = cantidadTotal > 0 ? montoTotal / cantidadTotal : 0;
 
       const fechaRaw = document.getElementById('ent-fecha').value;

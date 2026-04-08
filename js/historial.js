@@ -131,6 +131,10 @@ const Historial = {
       `;
     }).join('');
 
+    if (data.length === 100) {
+      listEl.innerHTML += '<p class="text-sm text-muted" style="text-align:center;padding:12px">Mostrando las últimas 100 entregas</p>';
+    }
+
     Historial._data = data;
   },
 
