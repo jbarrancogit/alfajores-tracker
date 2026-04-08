@@ -28,6 +28,10 @@ const ExcelExport = {
           <div class="export-option-title">Datos crudos</div>
           <div class="export-option-desc">Todas las entregas en una tabla plana, una fila por tipo de alfajor</div>
         </div>
+        <div class="export-option" onclick="ExcelExport.exportAudit()" style="border:1px solid var(--red)">
+          <div class="export-option-title" style="color:var(--red)">Auditoría completa</div>
+          <div class="export-option-desc">Todos los datos de TODA la historia, por repartidor, con detección de discrepancias y pagos duplicados</div>
+        </div>
       </div>
     `;
     document.body.appendChild(overlay);
@@ -222,5 +226,219 @@ const ExcelExport = {
 
     document.querySelector('.modal-overlay')?.remove();
     showToast('Datos descargados');
+  },
+
+  /** Full audit export — all data, all time, per user, with discrepancy detection */
+  async exportAudit() {
+    showToast('Generando auditoría completa...');
+    const btn = document.querySelector('.modal-overlay .export-option:last-child');
+    if (btn) btn.style.opacity = '0.5';
+
+    try {
+      // Fetch ALL entregas (no date filter)
+      const { data: allEntregas } = await db.from('entregas')
+        .select('*, entrega_lineas(*, tipos_alfajor(nombre)), puntos_entrega(nombre), usuarios(nombre)')
+        .order('fecha_hora', { ascending: true });
+      const entregas = allEntregas || [];
+
+      // Fetch ALL pagos
+      const { data: allPagos } = await db.from('pagos')
+        .select('*, usuarios(nombre)')
+        .order('fecha', { ascending: true });
+      const pagos = allPagos || [];
+
+      // Fetch usuarios
+      const { data: usuarios } = await db.from('usuarios').select('id, nombre, rol, comision_pct');
+      const userMap = {};
+      (usuarios || []).forEach(u => { userMap[u.id] = u; });
+
+      // Build pagos-per-entrega map
+      const pagosPerEntrega = {};
+      pagos.forEach(p => {
+        if (!pagosPerEntrega[p.entrega_id]) pagosPerEntrega[p.entrega_id] = [];
+        pagosPerEntrega[p.entrega_id].push(p);
+      });
+
+      // ========== HOJA 1: Resumen por Repartidor ==========
+      const resMap = {};
+      entregas.forEach(e => {
+        const uid = e.repartidor_id;
+        const u = userMap[uid] || {};
+        if (!resMap[uid]) resMap[uid] = {
+          nombre: u.nombre || e.usuarios?.nombre || '?', rol: u.rol || '?',
+          entregas: 0, uds: 0, vendido: 0, cobrado_tabla: 0, cobrado_pagos: 0,
+          efectivo: 0, transfer: 0, pendiente: 0
+        };
+        const r = resMap[uid];
+        r.entregas++;
+        r.uds += Number(e.cantidad);
+        r.vendido += Number(e.monto_total);
+        r.cobrado_tabla += Number(e.monto_pagado);
+        const ep = pagosPerEntrega[e.id] || [];
+        ep.forEach(p => {
+          if (p.forma_pago === 'efectivo') r.efectivo += Number(p.monto);
+          else if (p.forma_pago === 'transferencia') r.transfer += Number(p.monto);
+        });
+        r.cobrado_pagos = r.efectivo + r.transfer;
+        r.pendiente = r.vendido - r.cobrado_pagos;
+      });
+      const resHeader = ['Repartidor', 'Rol', 'Entregas', 'Unidades', 'Vendido',
+        'Cobrado (tabla entregas)', 'Cobrado (tabla pagos)', 'Diferencia',
+        'Efectivo', 'Transferencia', 'Pendiente'];
+      const resRows = Object.values(resMap).map(r => [
+        r.nombre, r.rol, r.entregas, r.uds, r.vendido,
+        r.cobrado_tabla, r.cobrado_pagos,
+        r.cobrado_tabla - r.cobrado_pagos,
+        r.efectivo, r.transfer, r.pendiente
+      ]);
+
+      // ========== HOJA 2: Todas las Entregas ==========
+      const entHeader = ['Fecha', 'Repartidor', 'Cliente', 'Recibió', 'Unidades', 'Detalle',
+        'Total Venta', 'Pagado (entregas)', 'Pagado (pagos)', 'Diferencia',
+        'Efectivo', 'Transferencia', 'Pendiente', 'Forma Pago', 'Estado', 'Notas'];
+      const entRows = entregas.map(e => {
+        const ep = pagosPerEntrega[e.id] || [];
+        let ef = 0, tr = 0;
+        ep.forEach(p => {
+          if (p.forma_pago === 'efectivo') ef += Number(p.monto);
+          else if (p.forma_pago === 'transferencia') tr += Number(p.monto);
+        });
+        const cobradoPagos = ef + tr;
+        const cobradoTabla = Number(e.monto_pagado);
+        const total = Number(e.monto_total);
+        const diff = cobradoTabla - cobradoPagos;
+        const detalle = (e.entrega_lineas || []).map(l =>
+          `${l.cantidad} ${l.tipos_alfajor?.nombre || '?'}`).join(', ');
+        let estado = 'Fiado';
+        if (cobradoPagos >= total && total > 0) estado = 'Pagado';
+        else if (cobradoPagos > 0) estado = 'Parcial';
+        return [
+          fmtDateTime(e.fecha_hora),
+          e.usuarios?.nombre || '?',
+          e.puntos_entrega?.nombre || e.punto_nombre_temp || '?',
+          e.recibio || '',
+          e.cantidad,
+          detalle,
+          total, cobradoTabla, cobradoPagos,
+          Math.abs(diff) > 0.01 ? diff : 0,
+          ef, tr,
+          total - cobradoPagos,
+          e.forma_pago || '',
+          estado,
+          e.notas || ''
+        ];
+      });
+
+      // ========== HOJA 3: Todos los Pagos ==========
+      const pagHeader = ['Fecha Pago', 'Entrega Fecha', 'Cliente', 'Repartidor',
+        'Monto', 'Forma', 'Registrado Por'];
+      const pagRows = pagos.map(p => {
+        const e = entregas.find(x => x.id === p.entrega_id);
+        return [
+          fmtDateTime(p.fecha),
+          e ? fmtDateTime(e.fecha_hora) : '?',
+          e ? (e.puntos_entrega?.nombre || e.punto_nombre_temp || '?') : '?',
+          e ? (e.usuarios?.nombre || '?') : '?',
+          Number(p.monto),
+          p.forma_pago,
+          p.usuarios?.nombre || '?'
+        ];
+      });
+
+      // ========== HOJA 4: Discrepancias ==========
+      const discHeader = ['Tipo', 'Fecha', 'Cliente', 'Repartidor', 'Detalle', 'Valor 1', 'Valor 2'];
+      const discRows = [];
+
+      // Discrepancias monto_pagado vs pagos
+      entregas.forEach(e => {
+        const ep = pagosPerEntrega[e.id] || [];
+        let sumPagos = 0;
+        ep.forEach(p => { sumPagos += Number(p.monto); });
+        const diff = Number(e.monto_pagado) - sumPagos;
+        if (Math.abs(diff) > 0.01) {
+          discRows.push([
+            'DESYNC monto_pagado',
+            fmtDateTime(e.fecha_hora),
+            e.puntos_entrega?.nombre || '?',
+            e.usuarios?.nombre || '?',
+            `entregas.monto_pagado=${e.monto_pagado}, sum(pagos)=${sumPagos}`,
+            Number(e.monto_pagado), sumPagos
+          ]);
+        }
+      });
+
+      // Posibles duplicados (pagos < 5 seg diferencia, mismo monto y forma)
+      const sorted = [...pagos].sort((a, b) => a.entrega_id.localeCompare(b.entrega_id) || new Date(a.fecha) - new Date(b.fecha));
+      for (let i = 1; i < sorted.length; i++) {
+        const a = sorted[i - 1], b = sorted[i];
+        if (a.entrega_id === b.entrega_id && a.monto === b.monto && a.forma_pago === b.forma_pago) {
+          const diffSec = Math.abs(new Date(b.fecha) - new Date(a.fecha)) / 1000;
+          if (diffSec < 10) {
+            const e = entregas.find(x => x.id === a.entrega_id);
+            discRows.push([
+              'POSIBLE DUPLICADO',
+              fmtDateTime(b.fecha),
+              e ? (e.puntos_entrega?.nombre || '?') : '?',
+              e ? (e.usuarios?.nombre || '?') : '?',
+              `$${a.monto} ${a.forma_pago} x2, ${diffSec.toFixed(0)}s diferencia`,
+              Number(a.monto), Number(b.monto)
+            ]);
+          }
+        }
+      }
+
+      // Entregas sin líneas
+      entregas.forEach(e => {
+        if (!e.entrega_lineas || e.entrega_lineas.length === 0) {
+          discRows.push([
+            'SIN LINEAS',
+            fmtDateTime(e.fecha_hora),
+            e.puntos_entrega?.nombre || '?',
+            e.usuarios?.nombre || '?',
+            `Entrega sin detalle de alfajores`,
+            Number(e.monto_total), 0
+          ]);
+        }
+      });
+
+      // Entregas con cobrado > vendido (overpayment)
+      entregas.forEach(e => {
+        const ep = pagosPerEntrega[e.id] || [];
+        let sumPagos = 0;
+        ep.forEach(p => { sumPagos += Number(p.monto); });
+        if (sumPagos > Number(e.monto_total) + 0.01) {
+          discRows.push([
+            'SOBREPAGO',
+            fmtDateTime(e.fecha_hora),
+            e.puntos_entrega?.nombre || '?',
+            e.usuarios?.nombre || '?',
+            `Cobrado $${sumPagos} > Total $${e.monto_total}`,
+            sumPagos, Number(e.monto_total)
+          ]);
+        }
+      });
+
+      if (discRows.length === 0) {
+        discRows.push(['OK', '', '', '', 'No se encontraron discrepancias', 0, 0]);
+      }
+
+      // ========== Generar Excel ==========
+      const wb = XLSX.utils.book_new();
+      const ws1 = XLSX.utils.aoa_to_sheet([resHeader, ...resRows]);
+      const ws2 = XLSX.utils.aoa_to_sheet([entHeader, ...entRows]);
+      const ws3 = XLSX.utils.aoa_to_sheet([pagHeader, ...pagRows]);
+      const ws4 = XLSX.utils.aoa_to_sheet([discHeader, ...discRows]);
+      XLSX.utils.book_append_sheet(wb, ws1, 'Resumen por Repartidor');
+      XLSX.utils.book_append_sheet(wb, ws2, 'Todas las Entregas');
+      XLSX.utils.book_append_sheet(wb, ws3, 'Todos los Pagos');
+      XLSX.utils.book_append_sheet(wb, ws4, 'Discrepancias');
+      XLSX.writeFile(wb, 'alfajores-auditoria-completa.xlsx');
+
+      document.querySelector('.modal-overlay')?.remove();
+      showToast('Auditoría descargada');
+    } catch (err) {
+      console.error('Error exportando auditoría:', err);
+      showToast('Error: ' + (err.message || err));
+    }
   }
 };
