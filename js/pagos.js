@@ -157,6 +157,16 @@ const Pagos = {
           <span class="text-sm text-muted">${impagas.length} entregas pendientes</span>
           <span class="text-red" style="font-weight:700">${fmtMoney(totalDeuda)}</span>
         </div>
+        <div class="form-group mb-8">
+          <label class="form-label">Forma de pago (pagar todo)</label>
+          <div class="toggle-group">
+            <button type="button" class="toggle-btn active"
+                    onclick="Pagos.setFormaPagoTodo(this, 'efectivo')">Efectivo</button>
+            <button type="button" class="toggle-btn"
+                    onclick="Pagos.setFormaPagoTodo(this, 'transferencia')">Transfer.</button>
+          </div>
+          <input type="hidden" id="pago-todo-forma" value="efectivo">
+        </div>
         <button class="btn btn-primary btn-block mb-16"
                 onclick="Pagos.pagarTodo('${puntoId}', this)">Pagar todo (${fmtMoney(totalDeuda)})</button>
         <button class="btn btn-secondary btn-block mb-16"
@@ -204,10 +214,18 @@ const Pagos = {
     }
   },
 
+  setFormaPagoTodo(btn, valor) {
+    btn.closest('.toggle-group').querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('pago-todo-forma').value = valor;
+  },
+
   /** Pay all unpaid entregas for a punto */
   async pagarTodo(puntoId, btn) {
     btn.disabled = true;
     btn.textContent = 'Procesando...';
+
+    const formaPago = document.getElementById('pago-todo-forma').value;
 
     try {
       const { data } = await db.from('entregas')
@@ -218,7 +236,7 @@ const Pagos = {
 
       for (const e of impagas) {
         const deuda = Number(e.monto_total) - Number(e.monto_pagado);
-        await Pagos.registrar(e.id, deuda, 'efectivo');
+        await Pagos.registrar(e.id, deuda, formaPago);
       }
 
       showToast('Todas las deudas saldadas');
