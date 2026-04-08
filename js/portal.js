@@ -10,7 +10,7 @@ const Portal = {
 
     const { data: puntos } = await Portal.portalDb
       .from('puntos_entrega')
-      .select('id, nombre')
+      .select('id, nombre, created_at')
       .limit(1);
 
     if (!puntos || puntos.length === 0) {
@@ -97,6 +97,7 @@ const Portal = {
         }
 
         <div class="portal-footer">
+          ${punto.created_at ? `<p class="text-xs text-muted">Enlace generado: ${new Date(punto.created_at).toLocaleDateString('es-AR')}</p>` : ''}
           <p class="text-xs text-muted">Alfajores Tracker</p>
         </div>
       </div>

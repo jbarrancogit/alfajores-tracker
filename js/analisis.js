@@ -196,6 +196,7 @@ const Analisis = {
       const tEl = document.getElementById('anal-to');
       from = fEl?.value ? new Date(fEl.value) : new Date(now.getTime() - 7 * 86400000);
       to = tEl?.value ? new Date(tEl.value + 'T23:59:59') : now;
+      if (from >= to) { const tmp = from; from = to; to = tmp; }
     }
 
     return { from, to };
@@ -210,6 +211,7 @@ const Analisis = {
   },
 
   async loadData() {
+   try {
     await Tipos.fetchAll();
     const { data: usuariosData } = await db.from('usuarios').select('id, nombre, comision_pct');
     const usuariosMap = {};
@@ -391,6 +393,8 @@ const Analisis = {
 
     let deudaQuery = db.from('entregas')
       .select('punto_entrega_id, monto_total, monto_pagado, puntos_entrega(nombre)');
+    if (from) deudaQuery = deudaQuery.gte('fecha_hora', from.toISOString());
+    deudaQuery = deudaQuery.lte('fecha_hora', to.toISOString());
     if (Analisis.vendedorId) deudaQuery = deudaQuery.eq('repartidor_id', Analisis.vendedorId);
     const { data: allE } = await deudaQuery;
     const deudaMap = {};
@@ -464,6 +468,16 @@ const Analisis = {
     }
 
     Analisis._data = { entregas, from, to, usuariosMap };
+   } catch (err) {
+    console.error('Analisis.loadData error:', err);
+    showToast('Error cargando datos');
+    const content = document.getElementById('anal-metrics');
+    if (content) content.innerHTML = '<p class="text-sm text-red">Error al cargar datos</p>';
+    ['anal-tipos','anal-ranking','anal-repartidores','anal-deudores','anal-liquidacion'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '';
+    });
+   }
   },
 
   _data: null,

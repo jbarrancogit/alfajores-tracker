@@ -44,10 +44,12 @@ const Historial = {
       }
     }
 
+    if (!Historial.filters.periodo) Historial.filters.periodo = 'semana';
+    const periodOrder = ['hoy', 'semana', 'mes', 'todo'];
     const chips = document.querySelectorAll('#hist-period-bar .filter-chip');
     chips.forEach(c => c.classList.remove('active'));
-    chips[1]?.classList.add('active');
-    Historial.filters.periodo = 'semana';
+    const idx = periodOrder.indexOf(Historial.filters.periodo);
+    chips[idx >= 0 ? idx : 1]?.classList.add('active');
 
     Historial.fetchEntregas();
   },
@@ -70,6 +72,9 @@ const Historial = {
     const listEl = document.getElementById('hist-list');
     if (!listEl) return;
     listEl.innerHTML = '<div class="spinner mt-8"></div>';
+
+    Historial._fetchId = (Historial._fetchId || 0) + 1;
+    const myFetchId = Historial._fetchId;
 
     let query = db.from('entregas')
       .select('*, puntos_entrega(nombre), entrega_lineas(*, tipos_alfajor(nombre))')
@@ -98,6 +103,8 @@ const Historial = {
     }
 
     const { data } = await query.limit(100);
+
+    if (myFetchId !== Historial._fetchId) return;
 
     if (!data || data.length === 0) {
       listEl.innerHTML = '<div class="empty-state"><p>Sin entregas en este período</p></div>';

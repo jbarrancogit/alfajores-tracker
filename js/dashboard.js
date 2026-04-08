@@ -52,8 +52,11 @@ const Dashboard = {
       `;
     }
 
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 90);
     const { data: allEntregas } = await db.from('entregas')
-      .select('punto_entrega_id, monto_total, monto_pagado, puntos_entrega(nombre)');
+      .select('punto_entrega_id, monto_total, monto_pagado, puntos_entrega(nombre)')
+      .gte('fecha_hora', cutoff.toISOString());
     const deudaMap = {};
     (allEntregas || []).forEach(e => {
       if (!e.punto_entrega_id) return;

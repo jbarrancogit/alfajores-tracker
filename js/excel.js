@@ -49,9 +49,13 @@ const ExcelExport = {
     if (Analisis._data && Analisis._data.entregas) {
       return Analisis._data.entregas;
     }
-    const { data } = await db.from('entregas')
-      .select('*, entrega_lineas(*, tipos_alfajor(nombre)), puntos_entrega(nombre, direccion), usuarios(nombre)')
-      .order('fecha_hora', { ascending: true });
+    const { from, to } = Analisis._dateRange(Analisis.periodo);
+    let query = db.from('entregas')
+      .select('*, entrega_lineas(*, tipos_alfajor(nombre)), puntos_entrega(nombre, direccion), usuarios(nombre)');
+    if (from) query = query.gte('fecha_hora', from.toISOString());
+    query = query.lte('fecha_hora', to.toISOString());
+    query = query.order('fecha_hora', { ascending: true });
+    const { data } = await query;
     return data || [];
   },
 

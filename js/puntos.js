@@ -66,6 +66,7 @@ const Puntos = {
     dropdown.classList.remove('hidden');
     Puntos.filterDropdown();
     setTimeout(() => {
+      document.removeEventListener('click', Puntos._closeHandler);
       document.addEventListener('click', Puntos._closeHandler);
     }, 0);
   },
