@@ -1,4 +1,15 @@
 const ExcelExport = {
+  async _fetchPagosMap() {
+    const { data } = await db.from('pagos').select('entrega_id, monto, forma_pago');
+    const map = {};
+    (data || []).forEach(p => {
+      if (!map[p.entrega_id]) map[p.entrega_id] = { efectivo: 0, transferencia: 0 };
+      if (p.forma_pago === 'efectivo') map[p.entrega_id].efectivo += Number(p.monto);
+      else if (p.forma_pago === 'transferencia') map[p.entrega_id].transferencia += Number(p.monto);
+    });
+    return map;
+  },
+
   showModal() {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
@@ -44,6 +55,7 @@ const ExcelExport = {
     const entregas = await ExcelExport._fetchData();
     const tipos = Tipos.activos();
     const tipoNames = tipos.map(t => t.nombre);
+    const pagosMap = await ExcelExport._fetchPagosMap();
 
     const header1 = ['Fecha', 'Cliente', 'Zona', ...tipoNames, 'Vendedor', 'Semana'];
     const rows1 = entregas.map(e => {
@@ -70,7 +82,7 @@ const ExcelExport = {
     tipos.forEach(t => {
       header2.push('Cant ' + t.nombre, 'Precio ' + t.nombre);
     });
-    header2.push('Costo Total', 'Total Venta', 'Ganancia', 'Vendedor', 'Semana');
+    header2.push('Costo Total', 'Total Venta', 'Ganancia', 'Pagado Efectivo', 'Pagado Transfer.', 'Forma Pago', 'Vendedor', 'Semana');
 
     const rows2 = entregas.map(e => {
       const lineas = e.entrega_lineas || [];
@@ -95,7 +107,8 @@ const ExcelExport = {
         ventaTotal += cant * precio;
       });
 
-      row.push(costoTotal, ventaTotal, ventaTotal - costoTotal);
+      const ep = pagosMap[e.id] || { efectivo: 0, transferencia: 0 };
+      row.push(costoTotal, ventaTotal, ventaTotal - costoTotal, ep.efectivo, ep.transferencia, e.forma_pago || '');
       row.push(e.usuarios?.nombre || '', ExcelExport._semana(e.fecha_hora));
       return row;
     });
@@ -138,14 +151,16 @@ const ExcelExport = {
   async exportCrudo() {
     showToast('Generando datos...');
     const entregas = await ExcelExport._fetchData();
+    const pagosMap = await ExcelExport._fetchPagosMap();
 
     const header = ['Fecha', 'Punto', 'Dirección', 'Recibió', 'Tipo Alfajor', 'Cantidad',
                     'Precio Venta', 'Costo', 'Subtotal Venta', 'Ganancia', 'Pagado', 'Debe',
-                    'Forma Pago', 'Vendedor', 'Notas'];
+                    'Forma Pago', 'Monto Efectivo', 'Monto Transfer.', 'Vendedor', 'Notas'];
 
     const rows = [];
     entregas.forEach(e => {
       const lineas = e.entrega_lineas || [];
+      const ep = pagosMap[e.id] || { efectivo: 0, transferencia: 0 };
       if (lineas.length === 0) {
         rows.push([
           fmtDate(e.fecha_hora),
@@ -161,6 +176,8 @@ const ExcelExport = {
           Number(e.monto_pagado),
           Number(e.monto_total) - Number(e.monto_pagado),
           e.forma_pago,
+          ep.efectivo,
+          ep.transferencia,
           e.usuarios?.nombre || '',
           e.notas || ''
         ]);
@@ -182,6 +199,8 @@ const ExcelExport = {
             Number(e.monto_pagado),
             Number(e.monto_total) - Number(e.monto_pagado),
             e.forma_pago,
+            ep.efectivo,
+            ep.transferencia,
             e.usuarios?.nombre || '',
             e.notas || ''
           ]);
