@@ -657,12 +657,17 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   color: var(--text-muted);
 }
 
-/* ── Metrics grid: 6 cards (2 rows × 3) ── */
-.metrics-grid-6 {
+/* ── Metrics grid: 8 cards (2 rows × 4 desktop, 4 rows × 2 mobile) ── */
+.metrics-grid-8 {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
   margin-bottom: 16px;
+}
+@media (max-width: 480px) {
+  .metrics-grid-8 {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 /* ── Type breakdown list ── */
@@ -934,4 +939,74 @@ h3 { font-size: 1.1rem; font-weight: 600; }
 .punto-option-new .punto-option-name {
   color: var(--accent);
   font-weight: 600;
+}
+
+/* ── Calendar ── */
+.calendar {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+.cal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.cal-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.cal-nav {
+  font-size: 1.4rem;
+  min-height: 32px;
+  min-width: 32px;
+  padding: 0;
+}
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.cal-dow {
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 4px 0;
+  text-transform: uppercase;
+}
+.cal-day {
+  text-align: center;
+  padding: 8px 0;
+  font-size: 0.85rem;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: background var(--transition);
+  color: var(--text-primary);
+}
+.cal-day:hover {
+  background: var(--bg-card-hover);
+}
+.cal-day-outside {
+  color: var(--text-muted);
+  opacity: 0.4;
+  cursor: default;
+}
+.cal-day-outside:hover {
+  background: none;
+}
+.cal-day-today {
+  border: 1px solid var(--accent);
+}
+.cal-day-selected {
+  background: var(--accent);
+  color: var(--bg-primary);
+  font-weight: 700;
+}
+.cal-day-selected:hover {
+  background: var(--accent-light);
 }
