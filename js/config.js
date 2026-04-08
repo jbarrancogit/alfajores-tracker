@@ -311,8 +311,11 @@ const Config = {
     }
 
     try {
-      // Save admin session before signUp (it may create a new session)
+      // Save admin session tokens before signUp (it may switch to the new user's session)
       const { data: adminSession } = await db.auth.getSession();
+      const adminAccessToken  = adminSession?.session?.access_token;
+      const adminRefreshToken = adminSession?.session?.refresh_token;
+      const adminUserId       = adminSession?.session?.user?.id;
 
       const { data, error } = await db.auth.signUp({
         email,
@@ -325,9 +328,23 @@ const Config = {
       if (error) throw error;
 
       // Restore admin session if signUp changed it
-      const { data: currentSession } = await db.auth.getSession();
-      if (adminSession?.session && currentSession?.session?.user?.id !== adminSession.session.user.id) {
-        await db.auth.setSession(adminSession.session);
+      try {
+        const { data: currentSession } = await db.auth.getSession();
+        if (adminUserId && currentSession?.session?.user?.id !== adminUserId) {
+          const { error: restoreErr } = await db.auth.setSession({
+            access_token: adminAccessToken,
+            refresh_token: adminRefreshToken
+          });
+          if (restoreErr) {
+            console.warn('setSession failed, reloading page to restore admin session', restoreErr);
+            window.location.reload();
+            return;
+          }
+        }
+      } catch (restoreEx) {
+        console.warn('Error restoring admin session, reloading page', restoreEx);
+        window.location.reload();
+        return;
       }
 
       if (data.user) {

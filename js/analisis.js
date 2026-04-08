@@ -283,8 +283,8 @@ const Analisis = {
     const prevUnidades = prevEntregas.reduce((s, e) => s + Number(e.cantidad), 0);
 
     const compEl = document.getElementById('anal-comparison');
-    if (compEl && prevVendido > 0) {
-      const pctVentas = ((totalVendido - prevVendido) / prevVendido * 100).toFixed(0);
+    if (compEl && (prevVendido > 0 || prevGanancia > 0 || prevUnidades > 0)) {
+      const pctVentas = prevVendido > 0 ? ((totalVendido - prevVendido) / prevVendido * 100).toFixed(0) : '—';
       const pctGanancia = prevGanancia > 0 ? ((totalGanancia - prevGanancia) / prevGanancia * 100).toFixed(0) : '—';
       const pctUnidades = prevUnidades > 0 ? ((totalUnidades - prevUnidades) / prevUnidades * 100).toFixed(0) : '—';
       compEl.innerHTML = `

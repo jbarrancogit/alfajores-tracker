@@ -37,8 +37,11 @@ const ExcelExport = {
 
   _semana(fecha) {
     const d = new Date(fecha);
-    const startOfYear = new Date(d.getFullYear(), 0, 1);
-    const weekNum = Math.ceil(((d - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
+    d.setHours(0, 0, 0, 0);
+    // Set to nearest Thursday: current date + 4 - current day number (Monday=1, Sunday=7)
+    d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+    const yearStart = new Date(d.getFullYear(), 0, 1);
+    const weekNum = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
     return ((weekNum - 1) % 4) + 1;
   },
 

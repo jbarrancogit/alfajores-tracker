@@ -1,6 +1,13 @@
 const Pagos = {
   /** Register a payment for an entrega */
   async registrar(entregaId, monto, formaPago) {
+    // Validate entrega exists before inserting
+    const { data: entrega } = await db.from('entregas')
+      .select('id')
+      .eq('id', entregaId)
+      .single();
+    if (!entrega) throw new Error('Entrega no encontrada');
+
     const { error: pagoErr } = await db.from('pagos').insert({
       entrega_id: entregaId,
       monto: monto,
@@ -9,18 +16,13 @@ const Pagos = {
     });
     if (pagoErr) throw pagoErr;
 
-    // Update monto_pagado on the entrega
-    const { data: entrega } = await db.from('entregas')
-      .select('monto_pagado')
-      .eq('id', entregaId)
-      .single();
-
-    const nuevoMontoPagado = Number(entrega.monto_pagado) + monto;
+    // Re-derive monto_pagado by summing ALL pagos for this entrega
+    const { data: allPagos } = await db.from('pagos')
+      .select('monto, forma_pago')
+      .eq('entrega_id', entregaId);
+    const nuevoMontoPagado = (allPagos || []).reduce((sum, p) => sum + Number(p.monto), 0);
 
     // Derive forma_pago from all pagos for this entrega
-    const { data: allPagos } = await db.from('pagos')
-      .select('forma_pago')
-      .eq('entrega_id', entregaId);
     const methods = new Set((allPagos || []).map(p => p.forma_pago));
     let formaActual = 'fiado';
     if (methods.size === 1) formaActual = [...methods][0];
@@ -51,7 +53,7 @@ const Pagos = {
         <div class="form-group">
           <label class="form-label">Monto a pagar</label>
           <input class="form-input" id="pago-monto-${entregaId}" type="number"
-                 min="1" step="1" value="${deudaRestante}" inputmode="numeric">
+                 min="1" max="${deudaRestante}" step="1" value="${deudaRestante}" inputmode="numeric">
         </div>
         <div class="form-group">
           <label class="form-label">Forma de pago</label>
@@ -83,6 +85,19 @@ const Pagos = {
     if (!monto || monto <= 0) {
       showToast('Ingresá un monto válido');
       return;
+    }
+
+    // Prevent overpayment
+    const { data: entregaCheck } = await db.from('entregas')
+      .select('monto_total, monto_pagado')
+      .eq('id', entregaId)
+      .single();
+    if (entregaCheck) {
+      const maxPago = Number(entregaCheck.monto_total) - Number(entregaCheck.monto_pagado);
+      if (monto > maxPago) {
+        showToast(`Monto máximo: ${fmtMoney(maxPago)}`);
+        return;
+      }
     }
 
     try {
