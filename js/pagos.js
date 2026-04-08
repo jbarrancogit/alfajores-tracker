@@ -16,8 +16,18 @@ const Pagos = {
       .single();
 
     const nuevoMontoPagado = Number(entrega.monto_pagado) + monto;
+
+    // Derive forma_pago from all pagos for this entrega
+    const { data: allPagos } = await db.from('pagos')
+      .select('forma_pago')
+      .eq('entrega_id', entregaId);
+    const methods = new Set((allPagos || []).map(p => p.forma_pago));
+    let formaActual = 'fiado';
+    if (methods.size === 1) formaActual = [...methods][0];
+    else if (methods.size > 1) formaActual = 'mixto';
+
     const { error: updateErr } = await db.from('entregas')
-      .update({ monto_pagado: nuevoMontoPagado })
+      .update({ monto_pagado: nuevoMontoPagado, forma_pago: formaActual })
       .eq('id', entregaId);
     if (updateErr) throw updateErr;
 
