@@ -31,6 +31,7 @@ const Dashboard = {
   },
 
   async loadData() {
+   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const isAdmin = Auth.isAdmin();
@@ -46,10 +47,8 @@ const Dashboard = {
     let totalCobrado = 0;
     const dashEntregaIds = entregas.map(e => e.id);
     if (dashEntregaIds.length > 0) {
-      const { data: dashPagos } = await db.from('pagos')
-        .select('monto')
-        .in('entrega_id', dashEntregaIds);
-      totalCobrado = (dashPagos || []).reduce((s, p) => s + Number(p.monto), 0);
+      const dashPagos = await batchIn('pagos', 'monto', 'entrega_id', dashEntregaIds);
+      totalCobrado = dashPagos.reduce((s, p) => s + Number(p.monto), 0);
     }
 
     const metricsEl = document.getElementById('dash-metrics');
@@ -63,9 +62,11 @@ const Dashboard = {
 
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 90);
-    const { data: allEntregas } = await db.from('entregas')
+    let deudaQ = db.from('entregas')
       .select('punto_entrega_id, monto_total, monto_pagado, puntos_entrega(nombre)')
       .gte('fecha_hora', cutoff.toISOString());
+    if (!isAdmin) deudaQ = deudaQ.eq('repartidor_id', Auth.currentUser.id);
+    const { data: allEntregas } = await deudaQ;
     const deudaMap = {};
     (allEntregas || []).forEach(e => {
       if (!e.punto_entrega_id) return;
@@ -138,5 +139,9 @@ const Dashboard = {
         }).join('');
       }
     }
+   } catch (err) {
+    console.error('Dashboard.loadData error:', err);
+    showToast('Error cargando datos');
+   }
   }
 };

@@ -206,7 +206,7 @@ const Entregas = {
   calcTotal() {
     let total = 0;
     document.querySelectorAll('.type-line').forEach(line => {
-      const cant = parseFloat(line.querySelector('.ent-line-cant').value) || 0;
+      const cant = parseInt(line.querySelector('.ent-line-cant').value) || 0;
       const precio = parseFloat(line.querySelector('.ent-line-precio').value) || 0;
       total += cant * precio;
     });
@@ -366,6 +366,12 @@ const Entregas = {
         btn.textContent = editId ? 'Actualizar' : 'Guardar entrega';
         return;
       }
+      if (lines.some(l => l.precio_unitario < 0 || l.costo_unitario < 0)) {
+        showToast('Los precios y costos deben ser positivos');
+        btn.disabled = false;
+        btn.textContent = editId ? 'Actualizar' : 'Guardar entrega';
+        return;
+      }
 
       // Calculate aggregates
       const cantidadTotal = lines.reduce((s, l) => s + l.cantidad, 0);
@@ -374,6 +380,15 @@ const Entregas = {
 
       const fechaRaw = document.getElementById('ent-fecha').value;
       const fechaISO = new Date(fechaRaw).toISOString();
+
+      const pagoEf = parseFloat(document.getElementById('ent-pago-efectivo').value) || 0;
+      const pagoTr = parseFloat(document.getElementById('ent-pago-transfer').value) || 0;
+      if (pagoEf + pagoTr > montoTotal) {
+        showToast('El pago no puede superar el total');
+        btn.disabled = false;
+        btn.textContent = editId ? 'Actualizar' : 'Guardar entrega';
+        return;
+      }
 
       const repartidorId = document.getElementById('ent-vendedor')
         ? document.getElementById('ent-vendedor').value
@@ -388,8 +403,7 @@ const Entregas = {
         cantidad: cantidadTotal,
         precio_unitario: precioPromedio,
         monto_total: montoTotal,
-        monto_pagado: (parseFloat(document.getElementById('ent-pago-efectivo').value) || 0)
-                    + (parseFloat(document.getElementById('ent-pago-transfer').value) || 0),
+        monto_pagado: pagoEf + pagoTr,
         forma_pago: Entregas._detectFormaPago(),
         notas: document.getElementById('ent-notas').value.trim()
       };
@@ -418,13 +432,14 @@ const Entregas = {
         // Insert lines
         const lineRows = lines.map(l => ({ ...l, entrega_id: entregaId }));
         const { error: lineErr } = await db.from('entrega_lineas').insert(lineRows);
-        if (lineErr) throw lineErr;
+        if (lineErr) {
+          await db.from('entregas').delete().eq('id', entregaId);
+          throw lineErr;
+        }
       }
 
       // Register initial payments (one per method used)
       if (!editId) {
-        const pagoEf = parseFloat(document.getElementById('ent-pago-efectivo').value) || 0;
-        const pagoTr = parseFloat(document.getElementById('ent-pago-transfer').value) || 0;
         const pagosToInsert = [];
         if (pagoEf > 0) pagosToInsert.push({ entrega_id: entregaId, monto: pagoEf, forma_pago: 'efectivo', registrado_por: Auth.currentUser.id });
         if (pagoTr > 0) pagosToInsert.push({ entrega_id: entregaId, monto: pagoTr, forma_pago: 'transferencia', registrado_por: Auth.currentUser.id });

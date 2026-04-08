@@ -226,18 +226,14 @@ const Analisis = {
     const { data } = await query;
     const entregas = data || [];
 
-    // Fetch pagos breakdown for these entregas
+    // Fetch pagos breakdown for these entregas (batched to avoid URL limits)
     let cobradoEfectivo = 0, cobradoTransfer = 0;
     const entregaIds = entregas.map(e => e.id);
-    if (entregaIds.length > 0) {
-      const { data: pagosData } = await db.from('pagos')
-        .select('monto, forma_pago')
-        .in('entrega_id', entregaIds);
-      (pagosData || []).forEach(p => {
-        if (p.forma_pago === 'efectivo') cobradoEfectivo += Number(p.monto);
-        else if (p.forma_pago === 'transferencia') cobradoTransfer += Number(p.monto);
-      });
-    }
+    const pagosData = await batchIn('pagos', 'monto, forma_pago', 'entrega_id', entregaIds);
+    pagosData.forEach(p => {
+      if (p.forma_pago === 'efectivo') cobradoEfectivo += Number(p.monto);
+      else if (p.forma_pago === 'transferencia') cobradoTransfer += Number(p.monto);
+    });
 
     let prevEntregas = [];
     if (from) {

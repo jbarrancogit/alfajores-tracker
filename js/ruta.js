@@ -17,6 +17,7 @@ const Ruta = {
   },
 
   async loadMap() {
+   try {
     const isAdmin = Auth.isAdmin();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -91,6 +92,10 @@ const Ruta = {
     }
 
     Ruta.centerOnMe();
+   } catch (err) {
+    console.error('Ruta error:', err);
+    showToast('Error cargando ruta');
+   }
   },
 
   centerOnMe() {

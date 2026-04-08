@@ -11,6 +11,9 @@ const App = {
   },
 
   init() {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
     window.addEventListener('hashchange', () => App.navigate());
 
     document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -57,6 +60,12 @@ const App = {
 
     // Regular routes require auth
     if (!Auth.currentUser) return;
+
+    // Admin-only route guards (prevent data-fetching side effects)
+    if ((hash === '/config' || hash === '/analisis') && !Auth.isAdmin()) {
+      window.location.hash = '#/';
+      return;
+    }
 
     const route = App.routes[hash];
     if (!route) {

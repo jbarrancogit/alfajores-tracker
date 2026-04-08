@@ -1,12 +1,14 @@
 const Pagos = {
   /** Register a payment for an entrega */
   async registrar(entregaId, monto, formaPago) {
-    // Validate entrega exists before inserting
+    // Validate entrega exists and check remaining debt
     const { data: entrega } = await db.from('entregas')
-      .select('id')
+      .select('id, monto_total, monto_pagado')
       .eq('id', entregaId)
       .single();
     if (!entrega) throw new Error('Entrega no encontrada');
+    const maxPago = Number(entrega.monto_total) - Number(entrega.monto_pagado);
+    if (monto > maxPago + 0.01) throw new Error('El monto excede la deuda restante');
 
     const { error: pagoErr } = await db.from('pagos').insert({
       entrega_id: entregaId,
@@ -100,6 +102,8 @@ const Pagos = {
       }
     }
 
+    const btn = document.querySelector('#pago-form-' + entregaId + ' .btn-primary');
+    if (btn) btn.disabled = true;
     try {
       await Pagos.registrar(entregaId, monto, forma);
       showToast('Pago registrado');
@@ -112,23 +116,27 @@ const Pagos = {
     } catch (err) {
       console.error('Error registrando pago:', err);
       showToast('Error: ' + (err.message || err));
+      if (btn) btn.disabled = false;
     }
   },
 
   /** Render payment history list */
-  renderHistorial(pagos) {
+  renderHistorial(pagos, entregaId) {
     if (!pagos || pagos.length === 0) {
       return '<p class="text-sm text-muted" style="padding:4px 0">Sin pagos registrados</p>';
     }
+    const isAdmin = Auth.isAdmin();
     return '<div class="pago-historial">' + pagos.map(p => `
       <div class="pago-item">
         <div>
           <span>${fmtMoney(p.monto)}</span>
           <span class="text-muted text-xs" style="margin-left:6px">${esc(p.forma_pago)}</span>
         </div>
-        <div>
+        <div style="display:flex;align-items:center;gap:6px">
           <span class="pago-item-date">${fmtDateTime(p.fecha)}</span>
-          <span class="text-xs text-muted" style="margin-left:4px">${esc(p.usuarios?.nombre || '')}</span>
+          <span class="text-xs text-muted">${esc(p.usuarios?.nombre || '')}</span>
+          ${isAdmin && entregaId ? `<button class="btn-icon text-red" style="width:24px;height:24px;font-size:14px"
+            onclick="Pagos.deletePago('${p.id}','${entregaId}')" title="Eliminar pago">&times;</button>` : ''}
         </div>
       </div>
     `).join('') + '</div>';
@@ -229,6 +237,24 @@ const Pagos = {
     }
   },
 
+  async deletePago(pagoId, entregaId) {
+    if (!Auth.isAdmin()) { showToast('Solo admin puede eliminar pagos'); return; }
+    if (!confirm('¿Eliminar este pago?')) return;
+    try {
+      const { error } = await db.from('pagos').delete().eq('id', pagoId);
+      if (error) throw error;
+      showToast('Pago eliminado');
+      const overlay = document.querySelector('.modal-overlay');
+      if (overlay) overlay.remove();
+      if (App.currentRoute === '/historial') Historial.fetchEntregas();
+      else if (App.currentRoute === '/') Dashboard.loadData();
+      else if (App.currentRoute === '/analisis') Analisis.loadData();
+    } catch (err) {
+      console.error('Error eliminando pago:', err);
+      showToast('Error: ' + (err.message || err));
+    }
+  },
+
   setFormaPagoTodo(btn, valor) {
     btn.closest('.toggle-group').querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
@@ -249,9 +275,11 @@ const Pagos = {
 
       const impagas = (data || []).filter(e => Number(e.monto_pagado) < Number(e.monto_total));
 
+      let exitosos = 0;
       for (const e of impagas) {
         const deuda = Number(e.monto_total) - Number(e.monto_pagado);
         await Pagos.registrar(e.id, deuda, formaPago);
+        exitosos++;
       }
 
       showToast('Todas las deudas saldadas');
@@ -261,7 +289,7 @@ const Pagos = {
       else if (App.currentRoute === '/analisis') Analisis.loadData();
     } catch (err) {
       console.error('Error pagando todo:', err);
-      showToast('Error: ' + (err.message || err));
+      showToast(exitosos > 0 ? `${exitosos} pagos OK, error en el resto` : 'Error: ' + (err.message || err));
       btn.disabled = false;
       btn.textContent = 'Reintentar';
     }

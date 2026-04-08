@@ -80,6 +80,11 @@ const Auth = {
     } else {
       Auth.currentProfile = data;
     }
+    if (!Auth.currentProfile) {
+      showToast('Error cargando perfil');
+      await Auth.logout();
+      return;
+    }
     console.log('Auth: perfil cargado', Auth.currentProfile);
   },
 

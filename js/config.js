@@ -142,18 +142,20 @@ const Config = {
   },
 
   async saveTipo(id) {
+    const btn = document.querySelector('.modal-overlay .btn-primary');
+    if (btn) btn.disabled = true;
     const nombre = document.getElementById('edit-tipo-nombre').value.trim();
     const orden = parseInt(document.getElementById('edit-tipo-orden').value) || 0;
     const costoDefault = parseFloat(document.getElementById('edit-tipo-costo').value) || 0;
     const esReventa = document.getElementById('edit-tipo-reventa').checked;
 
-    if (!nombre) { showToast('Ingresá un nombre'); return; }
+    if (!nombre) { showToast('Ingresá un nombre'); if (btn) btn.disabled = false; return; }
 
     const { error } = await db.from('tipos_alfajor').update({
       nombre, orden, costo_default: costoDefault, es_reventa: esReventa
     }).eq('id', id);
 
-    if (error) { showToast('Error: ' + error.message); return; }
+    if (error) { showToast('Error: ' + error.message); if (btn) btn.disabled = false; return; }
 
     document.querySelector('.modal-overlay')?.remove();
     showToast('Tipo actualizado');
@@ -195,18 +197,20 @@ const Config = {
   },
 
   async saveNewTipo() {
+    const btn = document.querySelector('.modal-overlay .btn-primary');
+    if (btn) btn.disabled = true;
     const nombre = document.getElementById('new-tipo-nombre').value.trim();
     const orden = parseInt(document.getElementById('new-tipo-orden').value) || 0;
     const costoDefault = parseFloat(document.getElementById('new-tipo-costo').value) || 0;
     const esReventa = document.getElementById('new-tipo-reventa').checked;
 
-    if (!nombre) { showToast('Ingresá un nombre'); return; }
+    if (!nombre) { showToast('Ingresá un nombre'); if (btn) btn.disabled = false; return; }
 
     const { error } = await db.from('tipos_alfajor').insert({
       nombre, orden, costo_default: costoDefault, es_reventa: esReventa
     });
 
-    if (error) { showToast('Error: ' + error.message); return; }
+    if (error) { showToast('Error: ' + error.message); if (btn) btn.disabled = false; return; }
 
     document.querySelector('.modal-overlay')?.remove();
     showToast('Tipo creado');
@@ -243,10 +247,12 @@ const Config = {
   },
 
   async saveUsuario(id) {
+    const btn = document.querySelector('#config-invite-slot .btn-primary');
+    if (btn) btn.disabled = true;
     const comision = parseFloat(document.getElementById('edit-user-comision').value) || 0;
     const rol = document.getElementById('invite-rol').value;
     const { error } = await db.from('usuarios').update({ comision_pct: comision, rol }).eq('id', id);
-    if (error) { showToast('Error: ' + error.message); return; }
+    if (error) { showToast('Error: ' + error.message); if (btn) btn.disabled = false; return; }
     showToast('Usuario actualizado');
     document.getElementById('config-invite-slot').innerHTML = '';
     Config.loadData();
@@ -310,6 +316,8 @@ const Config = {
       return;
     }
 
+    const invBtn = document.querySelector('#config-invite-slot .btn-primary');
+    if (invBtn) invBtn.disabled = true;
     try {
       // Save admin session tokens before signUp (it may switch to the new user's session)
       const { data: adminSession } = await db.auth.getSession();

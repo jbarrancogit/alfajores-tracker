@@ -72,7 +72,7 @@ const Historial = {
     const listEl = document.getElementById('hist-list');
     if (!listEl) return;
     listEl.innerHTML = '<div class="spinner mt-8"></div>';
-
+   try {
     Historial._fetchId = (Historial._fetchId || 0) + 1;
     const myFetchId = Historial._fetchId;
 
@@ -136,11 +136,16 @@ const Historial = {
     }
 
     Historial._data = data;
+   } catch (err) {
+    console.error('Historial error:', err);
+    showToast('Error cargando historial');
+   }
   },
 
   _data: [],
 
   async showDetail(id) {
+   try {
     const e = Historial._data.find(x => x.id === id);
     if (!e) return;
     const nombre = e.puntos_entrega?.nombre || e.punto_nombre_temp || 'Sin punto';
@@ -187,7 +192,7 @@ const Historial = {
 
         ${pagosHist.length > 0 ? `
           <div class="section-title">Historial de pagos</div>
-          ${Pagos.renderHistorial(pagosHist)}
+          ${Pagos.renderHistorial(pagosHist, e.id)}
         ` : ''}
 
         <div class="flex gap-8 mt-16">
@@ -210,5 +215,9 @@ const Historial = {
       overlay.remove();
       Entregas.renderForm(e);
     };
+   } catch (err) {
+    console.error('Historial detail error:', err);
+    showToast('Error cargando detalle');
+   }
   }
 };

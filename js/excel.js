@@ -1,8 +1,6 @@
 const ExcelExport = {
   async _fetchPagosMap(entregaIds) {
-    let query = db.from('pagos').select('entrega_id, monto, forma_pago');
-    if (entregaIds && entregaIds.length > 0) query = query.in('entrega_id', entregaIds);
-    const { data } = await query;
+    const data = await batchIn('pagos', 'entrega_id, monto, forma_pago', 'entrega_id', entregaIds || []);
     const map = {};
     (data || []).forEach(p => {
       if (!map[p.entrega_id]) map[p.entrega_id] = { efectivo: 0, transferencia: 0 };
