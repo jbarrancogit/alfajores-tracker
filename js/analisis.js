@@ -32,7 +32,7 @@ const Analisis = {
       <select class="form-select mb-8" id="anal-vendedor" onchange="Analisis.onVendedorChange()" style="font-size:0.85rem">
         <option value="">Todos los vendedores</option>
       </select>
-      <div id="anal-metrics" class="metrics-grid-6">
+      <div id="anal-metrics" class="metrics-grid-8">
         ${Array(6).fill('<div class="metric-card"><div class="metric-value">-</div><div class="metric-label">...</div></div>').join('')}
       </div>
       <div id="anal-comparison" class="comparison-row"></div>
@@ -121,6 +121,19 @@ const Analisis = {
     const { data } = await query;
     const entregas = data || [];
 
+    // Fetch pagos breakdown for these entregas
+    let cobradoEfectivo = 0, cobradoTransfer = 0;
+    const entregaIds = entregas.map(e => e.id);
+    if (entregaIds.length > 0) {
+      const { data: pagosData } = await db.from('pagos')
+        .select('monto, forma_pago')
+        .in('entrega_id', entregaIds);
+      (pagosData || []).forEach(p => {
+        if (p.forma_pago === 'efectivo') cobradoEfectivo += Number(p.monto);
+        else if (p.forma_pago === 'transferencia') cobradoTransfer += Number(p.monto);
+      });
+    }
+
     const prev = Analisis._prevRange(from, to);
     let prevQ = db.from('entregas')
       .select('*, entrega_lineas(cantidad, precio_unitario, costo_unitario)');
@@ -145,6 +158,8 @@ const Analisis = {
       metricsEl.innerHTML = `
         <div class="metric-card"><div class="metric-value">${fmtMoney(totalVendido)}</div><div class="metric-label">Vendido</div></div>
         <div class="metric-card"><div class="metric-value">${fmtMoney(totalCobrado)}</div><div class="metric-label">Cobrado</div></div>
+        <div class="metric-card"><div class="metric-value">${fmtMoney(cobradoEfectivo)}</div><div class="metric-label">Efectivo</div></div>
+        <div class="metric-card"><div class="metric-value">${fmtMoney(cobradoTransfer)}</div><div class="metric-label">Transfer.</div></div>
         <div class="metric-card"><div class="metric-value" style="color:var(--green)">${fmtMoney(totalGanancia)}</div><div class="metric-label">Ganancia</div></div>
         <div class="metric-card"><div class="metric-value">${totalUnidades}</div><div class="metric-label">Unidades</div></div>
         <div class="metric-card"><div class="metric-value" style="color:${totalPendiente > 0 ? 'var(--red)' : 'var(--green)'}">${fmtMoney(totalPendiente)}</div><div class="metric-label">Pendiente</div></div>
