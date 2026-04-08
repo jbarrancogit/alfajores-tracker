@@ -61,6 +61,9 @@ const Analisis = {
       ).join('');
       sel.innerHTML = `<option value="">Todos los vendedores</option>${opts}`;
     }
+    // Reset calendar to current month on each visit
+    Analisis.calendarMonth = null;
+    Analisis.selectedDate = null;
     Analisis._updateCalendar();
     Analisis.loadData();
   },
@@ -78,9 +81,11 @@ const Analisis = {
     let startDow = firstDay.getDay();
     startDow = startDow === 0 ? 6 : startDow - 1;
 
-    const todayStr = now.toISOString().slice(0, 10);
+    const pad = n => String(n).padStart(2, '0');
+    const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
     const selectedStr = Analisis.selectedDate
-      ? Analisis.selectedDate.toISOString().slice(0, 10) : '';
+      ? `${Analisis.selectedDate.getFullYear()}-${pad(Analisis.selectedDate.getMonth() + 1)}-${pad(Analisis.selectedDate.getDate())}`
+      : '';
 
     const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
                          'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
