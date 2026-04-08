@@ -25,8 +25,8 @@
 
   /* Text */
   --text-primary: #f4f4f5;
-  --text-secondary: #a1a1aa;
-  --text-muted: #71717a;
+  --text-secondary: #d4d4d8;
+  --text-muted: #a1a1aa;
 
   /* Borders */
   --border: rgba(255, 255, 255, 0.08);
@@ -63,8 +63,8 @@ body {
 h1 { font-size: 1.5rem; font-weight: 700; }
 h2 { font-size: 1.25rem; font-weight: 600; }
 h3 { font-size: 1.1rem; font-weight: 600; }
-.text-sm { font-size: 0.875rem; }
-.text-xs { font-size: 0.75rem; }
+.text-sm { font-size: 0.95rem; }
+.text-xs { font-size: 0.85rem; }
 .text-muted { color: var(--text-muted); }
 .text-secondary { color: var(--text-secondary); }
 .text-accent { color: var(--accent); }
@@ -149,10 +149,9 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   color: var(--accent);
 }
 .metric-card .metric-label {
-  font-size: 0.7rem;
+  font-size: 0.85rem;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
   margin-top: 2px;
 }
 
@@ -199,12 +198,11 @@ h3 { font-size: 1.1rem; font-weight: 600; }
 
 .form-label {
   display: block;
-  font-size: 0.8rem;
-  font-weight: 500;
+  font-size: 0.9rem;
+  font-weight: 600;
   color: var(--text-secondary);
   margin-bottom: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
 }
 
 .form-input,
@@ -232,7 +230,7 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
-.form-input::placeholder { color: var(--text-muted); }
+.form-input::placeholder { color: var(--text-secondary); opacity: 0.7; }
 .form-textarea { min-height: 80px; resize: vertical; }
 
 .form-select {
@@ -262,7 +260,7 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   font-weight: 500;
   cursor: pointer;
   transition: all var(--transition);
@@ -279,9 +277,9 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 8px;
+  padding: 4px 10px;
   border-radius: 20px;
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   font-weight: 600;
 }
 .badge-green { background: var(--green-bg); color: var(--green); }
@@ -310,7 +308,7 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   text-overflow: ellipsis;
 }
 .list-item-subtitle {
-  font-size: 0.8rem;
+  font-size: 0.88rem;
   color: var(--text-muted);
   margin-top: 2px;
 }
@@ -319,11 +317,10 @@ h3 { font-size: 1.1rem; font-weight: 600; }
 
 /* ── Section titles ── */
 .section-title {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.02em;
   margin: 20px 0 10px;
 }
 
@@ -424,14 +421,14 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   padding: 8px 12px;
   border: none;
   background: none;
   color: var(--text-muted);
   font-family: inherit;
-  font-size: 0.65rem;
-  font-weight: 500;
+  font-size: 0.75rem;
+  font-weight: 600;
   cursor: pointer;
   transition: color var(--transition);
   -webkit-tap-highlight-color: transparent;
@@ -512,7 +509,7 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   border-radius: 20px;
   color: var(--text-secondary);
   font-family: inherit;
-  font-size: 0.8rem;
+  font-size: 0.88rem;
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
@@ -552,13 +549,13 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   margin-bottom: 8px;
 }
 .type-line-name {
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   margin-bottom: 8px;
 }
 .type-line-name .reventa-tag {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-weight: 500;
   color: var(--text-muted);
   background: var(--bg-input);
@@ -589,10 +586,9 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   font-size: 0.9rem;
 }
 .type-line-fields label {
-  font-size: 0.65rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
   margin-bottom: 3px;
   display: block;
 }
@@ -605,7 +601,7 @@ h3 { font-size: 1.1rem; font-weight: 600; }
 }
 .pago-split-row .form-group { margin-bottom: 4px; }
 .pago-summary {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
   margin-bottom: 12px;
   min-height: 1.2em;
@@ -622,7 +618,7 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   margin-top: 12px;
 }
 .pago-form .form-group { margin-bottom: 10px; }
-.pago-form .form-label { font-size: 0.7rem; }
+.pago-form .form-label { font-size: 0.85rem; }
 
 .pago-historial {
   margin-top: 12px;
@@ -636,7 +632,7 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   font-size: 0.85rem;
 }
 .pago-item:last-child { border-bottom: none; }
-.pago-item-date { color: var(--text-muted); font-size: 0.75rem; }
+.pago-item-date { color: var(--text-muted); font-size: 0.85rem; }
 
 /* ── Deudor modal ── */
 .deudor-entrega {
@@ -653,7 +649,7 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   margin-bottom: 6px;
 }
 .deudor-entrega-detail {
-  font-size: 0.8rem;
+  font-size: 0.88rem;
   color: var(--text-muted);
 }
 
@@ -686,7 +682,7 @@ h3 { font-size: 1.1rem; font-weight: 600; }
 .type-breakdown-item .type-name { font-weight: 500; }
 .type-breakdown-item .type-stat {
   text-align: right;
-  font-size: 0.8rem;
+  font-size: 0.88rem;
   color: var(--text-secondary);
 }
 
@@ -705,7 +701,7 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 20px;
-  font-size: 0.8rem;
+  font-size: 0.88rem;
 }
 .comparison-chip .positive { color: var(--green); }
 .comparison-chip .negative { color: var(--red); }
@@ -732,8 +728,8 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   margin-bottom: 6px;
 }
 .config-item-info { flex: 1; min-width: 0; }
-.config-item-name { font-weight: 500; font-size: 0.9rem; }
-.config-item-detail { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+.config-item-name { font-weight: 500; font-size: 0.95rem; }
+.config-item-detail { font-size: 0.85rem; color: var(--text-muted); margin-top: 2px; }
 .config-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
 
 .toggle-switch {
@@ -772,7 +768,7 @@ h3 { font-size: 1.1rem; font-weight: 600; }
 }
 .export-option:active { background: var(--bg-card-hover); border-color: var(--accent); }
 .export-option-title { font-weight: 600; margin-bottom: 4px; }
-.export-option-desc { font-size: 0.8rem; color: var(--text-muted); }
+.export-option-desc { font-size: 0.88rem; color: var(--text-muted); }
 
 /* ── Date range picker ── */
 .date-range {
@@ -847,9 +843,9 @@ h3 { font-size: 1.1rem; font-weight: 600; }
 }
 .liq-header {
   color: var(--text-muted);
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   border-bottom: 1px solid var(--border);
 }
 .liq-row { border-bottom: 1px solid var(--border); }
@@ -882,7 +878,7 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   font-size: 0.85rem;
 }
 .portal-entrega-detail {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--text-secondary);
   line-height: 1.6;
 }
@@ -929,7 +925,7 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   color: var(--text-primary);
 }
 .punto-option-detail {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: var(--text-muted);
   margin-top: 2px;
 }
@@ -973,16 +969,15 @@ h3 { font-size: 1.1rem; font-weight: 600; }
 }
 .cal-dow {
   text-align: center;
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-muted);
   padding: 4px 0;
-  text-transform: uppercase;
 }
 .cal-day {
   text-align: center;
   padding: 8px 0;
-  font-size: 0.85rem;
+  font-size: 0.92rem;
   border-radius: var(--radius-xs);
   cursor: pointer;
   transition: background var(--transition);
