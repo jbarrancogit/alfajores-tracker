@@ -33,7 +33,7 @@ const Analisis = {
         <option value="">Todos los vendedores</option>
       </select>
       <div id="anal-metrics" class="metrics-grid-8">
-        ${Array(6).fill('<div class="metric-card"><div class="metric-value">-</div><div class="metric-label">...</div></div>').join('')}
+        ${Array(8).fill('<div class="metric-card"><div class="metric-value">-</div><div class="metric-label">...</div></div>').join('')}
       </div>
       <div id="anal-comparison" class="comparison-row"></div>
       <div class="section-title">Por tipo de alfajor</div>
