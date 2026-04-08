@@ -250,7 +250,7 @@ const Analisis = {
     }
 
     const totalVendido = entregas.reduce((s, e) => s + Number(e.monto_total), 0);
-    const totalCobrado = entregas.reduce((s, e) => s + Number(e.monto_pagado), 0);
+    const totalCobrado = cobradoEfectivo + cobradoTransfer;
     const totalUnidades = entregas.reduce((s, e) => s + Number(e.cantidad), 0);
     const totalPendiente = totalVendido - totalCobrado;
 

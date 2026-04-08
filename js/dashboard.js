@@ -41,7 +41,16 @@ const Dashboard = {
 
     const entregas = todayEntregas || [];
     const totalVendido = entregas.reduce((s, e) => s + Number(e.monto_total), 0);
-    const totalCobrado = entregas.reduce((s, e) => s + Number(e.monto_pagado), 0);
+
+    // Derive Cobrado from actual pagos to avoid desync with entregas.monto_pagado
+    let totalCobrado = 0;
+    const dashEntregaIds = entregas.map(e => e.id);
+    if (dashEntregaIds.length > 0) {
+      const { data: dashPagos } = await db.from('pagos')
+        .select('monto')
+        .in('entrega_id', dashEntregaIds);
+      totalCobrado = (dashPagos || []).reduce((s, p) => s + Number(p.monto), 0);
+    }
 
     const metricsEl = document.getElementById('dash-metrics');
     if (metricsEl) {

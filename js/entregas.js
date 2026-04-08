@@ -397,7 +397,9 @@ const Entregas = {
       let entregaId = editId;
 
       if (editId) {
-        const { error } = await db.from('entregas').update(row).eq('id', editId);
+        // Don't overwrite monto_pagado/forma_pago during edit — managed by pagos system
+        const { monto_pagado: _mp, forma_pago: _fp, ...editRow } = row;
+        const { error } = await db.from('entregas').update(editRow).eq('id', editId);
         if (error) throw error;
 
         // Fetch existing line IDs before inserting new ones
