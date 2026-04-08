@@ -145,7 +145,8 @@ const ExcelExport = {
       }
       liqMap[key].entregas++;
       liqMap[key].vendido += Number(e.monto_total);
-      liqMap[key].cobrado += Number(e.monto_pagado);
+      const _ep = pagosMap[e.id] || { efectivo: 0, transferencia: 0 };
+      liqMap[key].cobrado += _ep.efectivo + _ep.transferencia;
     });
     const liqRows = Object.values(liqMap).sort((a, b) => b.vendido - a.vendido);
     const liqHeader = ['Repartidor', 'Entregas', 'Vendido', 'Cobrado', 'Comisión %', 'A pagar'];
@@ -184,8 +185,8 @@ const ExcelExport = {
           0,
           Number(e.monto_total),
           0,
-          Number(e.monto_pagado),
-          Number(e.monto_total) - Number(e.monto_pagado),
+          ep.efectivo + ep.transferencia,
+          Number(e.monto_total) - (ep.efectivo + ep.transferencia),
           e.forma_pago,
           ep.efectivo,
           ep.transferencia,
@@ -207,8 +208,8 @@ const ExcelExport = {
             Number(l.costo_unitario),
             subtotal,
             ganancia,
-            Number(e.monto_pagado),
-            Number(e.monto_total) - Number(e.monto_pagado),
+            ep.efectivo + ep.transferencia,
+            Number(e.monto_total) - (ep.efectivo + ep.transferencia),
             e.forma_pago,
             ep.efectivo,
             ep.transferencia,

@@ -229,11 +229,17 @@ const Analisis = {
     // Fetch pagos breakdown for these entregas (batched to avoid URL limits)
     let cobradoEfectivo = 0, cobradoTransfer = 0;
     const entregaIds = entregas.map(e => e.id);
-    const pagosData = await batchIn('pagos', 'monto, forma_pago', 'entrega_id', entregaIds);
+    const pagosData = await batchIn('pagos', 'monto, forma_pago, entrega_id', 'entrega_id', entregaIds);
+
+    // Build per-entrega pagos sum (single source of truth for ALL sections)
+    const _pagosSum = {};
     pagosData.forEach(p => {
+      if (!_pagosSum[p.entrega_id]) _pagosSum[p.entrega_id] = 0;
+      _pagosSum[p.entrega_id] += Number(p.monto);
       if (p.forma_pago === 'efectivo') cobradoEfectivo += Number(p.monto);
       else if (p.forma_pago === 'transferencia') cobradoTransfer += Number(p.monto);
     });
+    const pagado = (eId) => _pagosSum[eId] || 0;
 
     let prevEntregas = [];
     if (from) {
@@ -331,7 +337,7 @@ const Analisis = {
       if (!puntoMap[key]) puntoMap[key] = { id: key, nombre, cantidad: 0, total: 0, deuda: 0 };
       puntoMap[key].cantidad += Number(e.cantidad);
       puntoMap[key].total += Number(e.monto_total);
-      puntoMap[key].deuda += Number(e.monto_total) - Number(e.monto_pagado);
+      puntoMap[key].deuda += Number(e.monto_total) - pagado(e.id);
     });
     const puntoRank = Object.values(puntoMap).sort((a, b) => b.total - a.total);
 
@@ -362,7 +368,7 @@ const Analisis = {
       if (!repMap[key]) repMap[key] = { nombre, entregas: 0, total: 0, cobrado: 0, ganancia: 0 };
       repMap[key].entregas++;
       repMap[key].total += Number(e.monto_total);
-      repMap[key].cobrado += Number(e.monto_pagado);
+      repMap[key].cobrado += pagado(e.id);
       (e.entrega_lineas || []).forEach(l => {
         repMap[key].ganancia += l.cantidad * (Number(l.precio_unitario) - Number(l.costo_unitario));
       });
@@ -389,20 +395,16 @@ const Analisis = {
       }
     }
 
-    let deudaQuery = db.from('entregas')
-      .select('punto_entrega_id, monto_total, monto_pagado, puntos_entrega(nombre)');
-    if (from) deudaQuery = deudaQuery.gte('fecha_hora', from.toISOString());
-    deudaQuery = deudaQuery.lte('fecha_hora', to.toISOString());
-    if (Analisis.vendedorId) deudaQuery = deudaQuery.eq('repartidor_id', Analisis.vendedorId);
-    const { data: allE } = await deudaQuery;
+    // Reuse already-fetched entregas + pagos sum (no separate query needed)
     const deudaMap = {};
-    (allE || []).forEach(e => {
+    entregas.forEach(e => {
       if (!e.punto_entrega_id) return;
       const key = e.punto_entrega_id;
-      if (!deudaMap[key]) deudaMap[key] = { id: key, nombre: e.puntos_entrega?.nombre || '?', total: 0, pagado: 0, entregas: 0 };
+      const nombre = e.puntos_entrega?.nombre || '?';
+      if (!deudaMap[key]) deudaMap[key] = { id: key, nombre, total: 0, pagado: 0, entregas: 0 };
       deudaMap[key].total += Number(e.monto_total);
-      deudaMap[key].pagado += Number(e.monto_pagado);
-      if (Number(e.monto_pagado) < Number(e.monto_total)) deudaMap[key].entregas++;
+      deudaMap[key].pagado += pagado(e.id);
+      if (pagado(e.id) < Number(e.monto_total)) deudaMap[key].entregas++;
     });
     const deudores = Object.values(deudaMap)
       .map(d => ({ ...d, saldo: d.total - d.pagado }))
@@ -438,7 +440,7 @@ const Analisis = {
       }
       liqMap[key].entregas++;
       liqMap[key].vendido += Number(e.monto_total);
-      liqMap[key].cobrado += Number(e.monto_pagado);
+      liqMap[key].cobrado += pagado(e.id);
     });
     const liqRank = Object.values(liqMap).sort((a, b) => b.vendido - a.vendido);
 

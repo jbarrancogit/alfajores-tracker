@@ -63,10 +63,15 @@ const Dashboard = {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 90);
     let deudaQ = db.from('entregas')
-      .select('punto_entrega_id, monto_total, monto_pagado, puntos_entrega(nombre)')
+      .select('id, punto_entrega_id, monto_total, puntos_entrega(nombre)')
       .gte('fecha_hora', cutoff.toISOString());
     if (!isAdmin) deudaQ = deudaQ.eq('repartidor_id', Auth.currentUser.id);
     const { data: allEntregas } = await deudaQ;
+    // Fetch pagos for deudores entregas (source of truth)
+    const deudaEntregaIds = (allEntregas || []).map(e => e.id);
+    const deudaPagos = await batchIn('pagos', 'entrega_id, monto', 'entrega_id', deudaEntregaIds);
+    const _dpSum = {};
+    deudaPagos.forEach(p => { _dpSum[p.entrega_id] = (_dpSum[p.entrega_id] || 0) + Number(p.monto); });
     const deudaMap = {};
     (allEntregas || []).forEach(e => {
       if (!e.punto_entrega_id) return;
@@ -78,9 +83,10 @@ const Dashboard = {
         pagado: 0,
         entregas: 0
       };
+      const epag = _dpSum[e.id] || 0;
       deudaMap[key].total += Number(e.monto_total);
-      deudaMap[key].pagado += Number(e.monto_pagado);
-      if (Number(e.monto_pagado) < Number(e.monto_total)) deudaMap[key].entregas++;
+      deudaMap[key].pagado += epag;
+      if (epag < Number(e.monto_total)) deudaMap[key].entregas++;
     });
     const deudores = Object.values(deudaMap)
       .map(d => ({ ...d, saldo: d.total - d.pagado }))
