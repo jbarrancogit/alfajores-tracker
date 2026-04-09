@@ -275,15 +275,45 @@ h3 { font-size: 1.1rem; font-weight: 600; }
 .toggle-btn-mauri {
   border-color: #a855f7;
   color: #a855f7;
+  background: rgba(168, 85, 247, 0.08);
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.25), inset 0 0 0 1px rgba(168, 85, 247, 0.15);
+  animation: mauri-glow 2s ease-in-out infinite alternate;
+  position: relative;
 }
-.toggle-btn-mauri:hover, .toggle-btn-mauri:active {
-  background: rgba(168, 85, 247, 0.15);
-  border-color: #a855f7;
-}
-.toggle-btn-mauri.active {
+.toggle-btn-mauri::after {
+  content: 'NUEVO';
+  position: absolute;
+  top: -8px;
+  right: -6px;
   background: #a855f7;
   color: #fff;
+  font-size: 0.55rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 8px;
+  letter-spacing: 0.5px;
+  line-height: 1.3;
+}
+.toggle-btn-mauri:hover, .toggle-btn-mauri:active {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: #c084fc;
+  box-shadow: 0 0 16px rgba(168, 85, 247, 0.4);
+  transform: scale(1.03);
+}
+.toggle-btn-mauri.active {
+  background: linear-gradient(135deg, #a855f7, #7c3aed);
+  color: #fff;
   border-color: #a855f7;
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.5);
+  animation: none;
+}
+.toggle-btn-mauri.active::after {
+  background: #fff;
+  color: #7c3aed;
+}
+@keyframes mauri-glow {
+  from { box-shadow: 0 0 6px rgba(168, 85, 247, 0.2), inset 0 0 0 1px rgba(168, 85, 247, 0.1); }
+  to { box-shadow: 0 0 14px rgba(168, 85, 247, 0.35), inset 0 0 0 1px rgba(168, 85, 247, 0.25); }
 }
 
 /* ── Status indicators ── */
