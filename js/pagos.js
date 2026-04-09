@@ -64,6 +64,8 @@ const Pagos = {
                     onclick="Pagos.setFormaPago('${entregaId}', this, 'efectivo')">Efectivo</button>
             <button type="button" class="toggle-btn"
                     onclick="Pagos.setFormaPago('${entregaId}', this, 'transferencia')">Transfer.</button>
+            <button type="button" class="toggle-btn toggle-btn-mauri"
+                    onclick="Pagos.setFormaPago('${entregaId}', this, 'transferencia_mauri')">T. Mauri</button>
           </div>
           <input type="hidden" id="pago-forma-${entregaId}" value="efectivo">
         </div>
@@ -187,6 +189,8 @@ const Pagos = {
                     onclick="Pagos.setFormaPagoTodo(this, 'efectivo')">Efectivo</button>
             <button type="button" class="toggle-btn"
                     onclick="Pagos.setFormaPagoTodo(this, 'transferencia')">Transfer.</button>
+            <button type="button" class="toggle-btn toggle-btn-mauri"
+                    onclick="Pagos.setFormaPagoTodo(this, 'transferencia_mauri')">T. Mauri</button>
           </div>
           <input type="hidden" id="pago-todo-forma" value="efectivo">
         </div>

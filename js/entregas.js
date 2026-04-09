@@ -134,7 +134,7 @@ const Entregas = {
           </div>
 
           <div class="section-title">Pago</div>
-          <div class="pago-split-row">
+          <div class="pago-split-row-3">
             <div class="form-group">
               <label class="form-label">Efectivo</label>
               <input class="form-input" id="ent-pago-efectivo" type="number" min="0" step="1"
@@ -147,6 +147,13 @@ const Entregas = {
               <input class="form-input" id="ent-pago-transfer" type="number" min="0" step="1"
                      placeholder="$0" inputmode="numeric"
                      value="${draft?.pagoTransfer || e._pagoTransfer || ''}"
+                     oninput="Entregas.calcPagado()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">T. Mauri</label>
+              <input class="form-input" id="ent-pago-mauri" type="number" min="0" step="1"
+                     placeholder="$0" inputmode="numeric"
+                     value="${draft?.pagoMauri || e._pagoMauri || ''}"
                      oninput="Entregas.calcPagado()">
             </div>
           </div>
@@ -217,8 +224,9 @@ const Entregas = {
   calcPagado() {
     const ef = parseFloat(document.getElementById('ent-pago-efectivo').value) || 0;
     const tr = parseFloat(document.getElementById('ent-pago-transfer').value) || 0;
+    const ma = parseFloat(document.getElementById('ent-pago-mauri').value) || 0;
     const total = parseFloat(document.getElementById('ent-total').value) || 0;
-    const pagado = ef + tr;
+    const pagado = ef + tr + ma;
     const sumEl = document.getElementById('pago-summary');
     if (pagado > 0 && pagado < total) {
       sumEl.textContent = 'Pagado: ' + fmtMoney(pagado) + ' — Fiado: ' + fmtMoney(total - pagado);
@@ -235,9 +243,12 @@ const Entregas = {
   _detectFormaPago() {
     const ef = parseFloat(document.getElementById('ent-pago-efectivo').value) || 0;
     const tr = parseFloat(document.getElementById('ent-pago-transfer').value) || 0;
-    if (ef > 0 && tr > 0) return 'mixto';
+    const ma = parseFloat(document.getElementById('ent-pago-mauri').value) || 0;
+    const count = (ef > 0 ? 1 : 0) + (tr > 0 ? 1 : 0) + (ma > 0 ? 1 : 0);
+    if (count > 1) return 'mixto';
     if (ef > 0) return 'efectivo';
     if (tr > 0) return 'transferencia';
+    if (ma > 0) return 'transferencia_mauri';
     return 'fiado';
   },
 
@@ -282,6 +293,7 @@ const Entregas = {
       lines,
       pagoEfectivo: document.getElementById('ent-pago-efectivo')?.value || '',
       pagoTransfer: document.getElementById('ent-pago-transfer')?.value || '',
+      pagoMauri: document.getElementById('ent-pago-mauri')?.value || '',
       notas: document.getElementById('ent-notas')?.value || '',
       fecha: document.getElementById('ent-fecha')?.value || '',
       nuevoPuntoNombre: document.getElementById('ent-punto-nombre')?.value || '',
@@ -383,7 +395,8 @@ const Entregas = {
 
       const pagoEf = parseFloat(document.getElementById('ent-pago-efectivo').value) || 0;
       const pagoTr = parseFloat(document.getElementById('ent-pago-transfer').value) || 0;
-      if (pagoEf + pagoTr > montoTotal) {
+      const pagoMa = parseFloat(document.getElementById('ent-pago-mauri').value) || 0;
+      if (pagoEf + pagoTr + pagoMa > montoTotal) {
         showToast('El pago no puede superar el total');
         btn.disabled = false;
         btn.textContent = editId ? 'Actualizar' : 'Guardar entrega';
@@ -403,7 +416,7 @@ const Entregas = {
         cantidad: cantidadTotal,
         precio_unitario: precioPromedio,
         monto_total: montoTotal,
-        monto_pagado: pagoEf + pagoTr,
+        monto_pagado: pagoEf + pagoTr + pagoMa,
         forma_pago: Entregas._detectFormaPago(),
         notas: document.getElementById('ent-notas').value.trim()
       };
@@ -443,6 +456,7 @@ const Entregas = {
         const pagosToInsert = [];
         if (pagoEf > 0) pagosToInsert.push({ entrega_id: entregaId, monto: pagoEf, forma_pago: 'efectivo', registrado_por: Auth.currentUser.id });
         if (pagoTr > 0) pagosToInsert.push({ entrega_id: entregaId, monto: pagoTr, forma_pago: 'transferencia', registrado_por: Auth.currentUser.id });
+        if (pagoMa > 0) pagosToInsert.push({ entrega_id: entregaId, monto: pagoMa, forma_pago: 'transferencia_mauri', registrado_por: Auth.currentUser.id });
         if (pagosToInsert.length > 0) {
           await db.from('pagos').insert(pagosToInsert);
         }

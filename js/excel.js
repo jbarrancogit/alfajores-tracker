@@ -3,9 +3,10 @@ const ExcelExport = {
     const data = await batchIn('pagos', 'entrega_id, monto, forma_pago', 'entrega_id', entregaIds || []);
     const map = {};
     (data || []).forEach(p => {
-      if (!map[p.entrega_id]) map[p.entrega_id] = { efectivo: 0, transferencia: 0 };
+      if (!map[p.entrega_id]) map[p.entrega_id] = { efectivo: 0, transferencia: 0, mauri: 0 };
       if (p.forma_pago === 'efectivo') map[p.entrega_id].efectivo += Number(p.monto);
       else if (p.forma_pago === 'transferencia') map[p.entrega_id].transferencia += Number(p.monto);
+      else if (p.forma_pago === 'transferencia_mauri') map[p.entrega_id].mauri = (map[p.entrega_id].mauri || 0) + Number(p.monto);
     });
     return map;
   },
@@ -93,7 +94,7 @@ const ExcelExport = {
     tipos.forEach(t => {
       header2.push('Cant ' + t.nombre, 'Precio ' + t.nombre);
     });
-    header2.push('Costo Total', 'Total Venta', 'Ganancia', 'Pagado Efectivo', 'Pagado Transfer.', 'Forma Pago', 'Vendedor', 'Semana');
+    header2.push('Costo Total', 'Total Venta', 'Ganancia', 'Pagado Efectivo', 'Pagado Transfer.', 'Pagado T. Mauri', 'Forma Pago', 'Vendedor', 'Semana');
 
     const rows2 = entregas.map(e => {
       const lineas = e.entrega_lineas || [];
@@ -118,8 +119,8 @@ const ExcelExport = {
         ventaTotal += cant * precio;
       });
 
-      const ep = pagosMap[e.id] || { efectivo: 0, transferencia: 0 };
-      row.push(costoTotal, ventaTotal, ventaTotal - costoTotal, ep.efectivo, ep.transferencia, e.forma_pago || '');
+      const ep = pagosMap[e.id] || { efectivo: 0, transferencia: 0, mauri: 0 };
+      row.push(costoTotal, ventaTotal, ventaTotal - costoTotal, ep.efectivo, ep.transferencia, ep.mauri || 0, e.forma_pago || '');
       row.push(e.usuarios?.nombre || '', ExcelExport._semana(e.fecha_hora));
       return row;
     });
@@ -145,8 +146,8 @@ const ExcelExport = {
       }
       liqMap[key].entregas++;
       liqMap[key].vendido += Number(e.monto_total);
-      const _ep = pagosMap[e.id] || { efectivo: 0, transferencia: 0 };
-      liqMap[key].cobrado += _ep.efectivo + _ep.transferencia;
+      const _ep = pagosMap[e.id] || { efectivo: 0, transferencia: 0, mauri: 0 };
+      liqMap[key].cobrado += _ep.efectivo + _ep.transferencia + (_ep.mauri || 0);
     });
     const liqRows = Object.values(liqMap).sort((a, b) => b.vendido - a.vendido);
     const liqHeader = ['Repartidor', 'Entregas', 'Vendido', 'Cobrado', 'Comisión %', 'A pagar'];
@@ -167,12 +168,12 @@ const ExcelExport = {
 
     const header = ['Fecha', 'Punto', 'Dirección', 'Recibió', 'Tipo Alfajor', 'Cantidad',
                     'Precio Venta', 'Costo', 'Subtotal Venta', 'Ganancia', 'Pagado', 'Debe',
-                    'Forma Pago', 'Monto Efectivo', 'Monto Transfer.', 'Vendedor', 'Notas'];
+                    'Forma Pago', 'Monto Efectivo', 'Monto Transfer.', 'Monto T. Mauri', 'Vendedor', 'Notas'];
 
     const rows = [];
     entregas.forEach(e => {
       const lineas = e.entrega_lineas || [];
-      const ep = pagosMap[e.id] || { efectivo: 0, transferencia: 0 };
+      const ep = pagosMap[e.id] || { efectivo: 0, transferencia: 0, mauri: 0 };
       if (lineas.length === 0) {
         rows.push([
           fmtDate(e.fecha_hora),
@@ -185,11 +186,12 @@ const ExcelExport = {
           0,
           Number(e.monto_total),
           0,
-          ep.efectivo + ep.transferencia,
-          Number(e.monto_total) - (ep.efectivo + ep.transferencia),
+          ep.efectivo + ep.transferencia + (ep.mauri || 0),
+          Number(e.monto_total) - (ep.efectivo + ep.transferencia + (ep.mauri || 0)),
           e.forma_pago,
           ep.efectivo,
           ep.transferencia,
+          ep.mauri || 0,
           e.usuarios?.nombre || '',
           e.notas || ''
         ]);
@@ -208,11 +210,12 @@ const ExcelExport = {
             Number(l.costo_unitario),
             subtotal,
             ganancia,
-            ep.efectivo + ep.transferencia,
-            Number(e.monto_total) - (ep.efectivo + ep.transferencia),
+            ep.efectivo + ep.transferencia + (ep.mauri || 0),
+            Number(e.monto_total) - (ep.efectivo + ep.transferencia + (ep.mauri || 0)),
             e.forma_pago,
             ep.efectivo,
             ep.transferencia,
+            ep.mauri || 0,
             e.usuarios?.nombre || '',
             e.notas || ''
           ]);
@@ -268,7 +271,7 @@ const ExcelExport = {
         if (!resMap[uid]) resMap[uid] = {
           nombre: u.nombre || e.usuarios?.nombre || '?', rol: u.rol || '?',
           entregas: 0, uds: 0, vendido: 0, cobrado_tabla: 0, cobrado_pagos: 0,
-          efectivo: 0, transfer: 0, pendiente: 0
+          efectivo: 0, transfer: 0, mauri: 0, pendiente: 0
         };
         const r = resMap[uid];
         r.entregas++;
@@ -279,32 +282,34 @@ const ExcelExport = {
         ep.forEach(p => {
           if (p.forma_pago === 'efectivo') r.efectivo += Number(p.monto);
           else if (p.forma_pago === 'transferencia') r.transfer += Number(p.monto);
+          else if (p.forma_pago === 'transferencia_mauri') r.mauri += Number(p.monto);
         });
-        r.cobrado_pagos = r.efectivo + r.transfer;
+        r.cobrado_pagos = r.efectivo + r.transfer + r.mauri;
         r.pendiente = r.vendido - r.cobrado_pagos;
       });
       const resHeader = ['Repartidor', 'Rol', 'Entregas', 'Unidades', 'Vendido',
         'Cobrado (tabla entregas)', 'Cobrado (tabla pagos)', 'Diferencia',
-        'Efectivo', 'Transferencia', 'Pendiente'];
+        'Efectivo', 'Transferencia', 'T. Mauri', 'Pendiente'];
       const resRows = Object.values(resMap).map(r => [
         r.nombre, r.rol, r.entregas, r.uds, r.vendido,
         r.cobrado_tabla, r.cobrado_pagos,
         r.cobrado_tabla - r.cobrado_pagos,
-        r.efectivo, r.transfer, r.pendiente
+        r.efectivo, r.transfer, r.mauri, r.pendiente
       ]);
 
       // ========== HOJA 2: Todas las Entregas ==========
       const entHeader = ['Fecha', 'Repartidor', 'Cliente', 'Recibió', 'Unidades', 'Detalle',
         'Total Venta', 'Pagado (entregas)', 'Pagado (pagos)', 'Diferencia',
-        'Efectivo', 'Transferencia', 'Pendiente', 'Forma Pago', 'Estado', 'Notas'];
+        'Efectivo', 'Transferencia', 'T. Mauri', 'Pendiente', 'Forma Pago', 'Estado', 'Notas'];
       const entRows = entregas.map(e => {
         const ep = pagosPerEntrega[e.id] || [];
-        let ef = 0, tr = 0;
+        let ef = 0, tr = 0, ma = 0;
         ep.forEach(p => {
           if (p.forma_pago === 'efectivo') ef += Number(p.monto);
           else if (p.forma_pago === 'transferencia') tr += Number(p.monto);
+          else if (p.forma_pago === 'transferencia_mauri') ma += Number(p.monto);
         });
-        const cobradoPagos = ef + tr;
+        const cobradoPagos = ef + tr + ma;
         const cobradoTabla = Number(e.monto_pagado);
         const total = Number(e.monto_total);
         const diff = cobradoTabla - cobradoPagos;
@@ -322,7 +327,7 @@ const ExcelExport = {
           detalle,
           total, cobradoTabla, cobradoPagos,
           Math.abs(diff) > 0.01 ? diff : 0,
-          ef, tr,
+          ef, tr, ma,
           total - cobradoPagos,
           e.forma_pago || '',
           estado,

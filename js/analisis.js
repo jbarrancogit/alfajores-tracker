@@ -35,9 +35,11 @@ const Analisis = {
       <select class="form-select mb-8" id="anal-vendedor" onchange="Analisis.onVendedorChange()" style="font-size:0.85rem">
         <option value="">Todos los vendedores</option>
       </select>
-      <div id="anal-metrics" class="metrics-grid-8">
-        ${Array(8).fill('<div class="metric-card"><div class="metric-value">-</div><div class="metric-label">...</div></div>').join('')}
+      <div id="anal-metrics" class="metrics-grid">
+        ${Array(6).fill('<div class="metric-card"><div class="metric-value">-</div><div class="metric-label">...</div></div>').join('')}
       </div>
+      <div class="section-title">Desglose de cobro</div>
+      <div id="anal-desglose" class="metrics-grid" style="grid-template-columns:1fr 1fr 1fr"></div>
       <div id="anal-comparison" class="comparison-row"></div>
       <div class="section-title">Por tipo de alfajor</div>
       <div id="anal-tipos"><div class="spinner mt-8"></div></div>
@@ -227,7 +229,7 @@ const Analisis = {
     const entregas = data || [];
 
     // Fetch pagos breakdown for these entregas (batched to avoid URL limits)
-    let cobradoEfectivo = 0, cobradoTransfer = 0;
+    let cobradoEfectivo = 0, cobradoTransfer = 0, cobradoMauri = 0;
     const entregaIds = entregas.map(e => e.id);
     const pagosData = await batchIn('pagos', 'monto, forma_pago, entrega_id', 'entrega_id', entregaIds);
 
@@ -238,8 +240,17 @@ const Analisis = {
       _pagosSum[p.entrega_id] += Number(p.monto);
       if (p.forma_pago === 'efectivo') cobradoEfectivo += Number(p.monto);
       else if (p.forma_pago === 'transferencia') cobradoTransfer += Number(p.monto);
+      else if (p.forma_pago === 'transferencia_mauri') cobradoMauri += Number(p.monto);
     });
     const pagado = (eId) => _pagosSum[eId] || 0;
+
+    const _pagosMauri = {};
+    pagosData.forEach(p => {
+      if (p.forma_pago === 'transferencia_mauri') {
+        _pagosMauri[p.entrega_id] = (_pagosMauri[p.entrega_id] || 0) + Number(p.monto);
+      }
+    });
+    const pagadoMauri = (eId) => _pagosMauri[eId] || 0;
 
     let prevEntregas = [];
     if (from) {
@@ -252,7 +263,7 @@ const Analisis = {
     }
 
     const totalVendido = entregas.reduce((s, e) => s + Number(e.monto_total), 0);
-    const totalCobrado = cobradoEfectivo + cobradoTransfer;
+    const totalCobrado = cobradoEfectivo + cobradoTransfer + cobradoMauri;
     const totalUnidades = entregas.reduce((s, e) => s + Number(e.cantidad), 0);
     const totalPendiente = totalVendido - totalCobrado;
 
@@ -268,12 +279,19 @@ const Analisis = {
       metricsEl.innerHTML = `
         <div class="metric-card"><div class="metric-value">${fmtMoney(totalVendido)}</div><div class="metric-label">Vendido</div></div>
         <div class="metric-card"><div class="metric-value">${fmtMoney(totalCobrado)}</div><div class="metric-label">Cobrado</div></div>
-        <div class="metric-card"><div class="metric-value">${fmtMoney(cobradoEfectivo)}</div><div class="metric-label">Efectivo</div></div>
-        <div class="metric-card"><div class="metric-value">${fmtMoney(cobradoTransfer)}</div><div class="metric-label">Transfer.</div></div>
         <div class="metric-card"><div class="metric-value" style="color:var(--green)">${fmtMoney(totalGanancia)}</div><div class="metric-label">Ganancia</div></div>
         <div class="metric-card"><div class="metric-value">${totalUnidades}</div><div class="metric-label">Unidades</div></div>
         <div class="metric-card"><div class="metric-value" style="color:${totalPendiente > 0 ? 'var(--red)' : 'var(--green)'}">${fmtMoney(totalPendiente)}</div><div class="metric-label">Pendiente</div></div>
         <div class="metric-card"><div class="metric-value">${entregas.length}</div><div class="metric-label">Entregas</div></div>
+      `;
+    }
+
+    const desgloseEl = document.getElementById('anal-desglose');
+    if (desgloseEl) {
+      desgloseEl.innerHTML = `
+        <div class="metric-card"><div class="metric-value">${fmtMoney(cobradoEfectivo)}</div><div class="metric-label">Efectivo</div></div>
+        <div class="metric-card"><div class="metric-value">${fmtMoney(cobradoTransfer)}</div><div class="metric-label">Transfer.</div></div>
+        <div class="metric-card"><div class="metric-value" style="color:#a855f7">${fmtMoney(cobradoMauri)}</div><div class="metric-label">T. Mauri</div></div>
       `;
     }
 
@@ -436,11 +454,12 @@ const Analisis = {
       const key = e.repartidor_id;
       if (!liqMap[key]) {
         const u = usuariosMap[key] || {};
-        liqMap[key] = { nombre: u.nombre || e.usuarios?.nombre || '?', entregas: 0, vendido: 0, cobrado: 0, pct: Number(u.comision_pct) || 0 };
+        liqMap[key] = { nombre: u.nombre || e.usuarios?.nombre || '?', entregas: 0, vendido: 0, cobrado: 0, mauri: 0, pct: Number(u.comision_pct) || 0 };
       }
       liqMap[key].entregas++;
       liqMap[key].vendido += Number(e.monto_total);
       liqMap[key].cobrado += pagado(e.id);
+      liqMap[key].mauri = (liqMap[key].mauri || 0) + pagadoMauri(e.id);
     });
     const liqRank = Object.values(liqMap).sort((a, b) => b.vendido - a.vendido);
 
@@ -452,16 +471,23 @@ const Analisis = {
         liqEl.innerHTML = `
           <div class="liq-table">
             <div class="liq-header">
-              <span>Repartidor</span><span>Vendido</span><span>%</span><span>A pagar</span>
+              <span>Repartidor</span><span>Vendido</span><span>Cobrado</span><span>T.Mauri</span><span>%</span><span>A rendir</span>
             </div>
-            ${liqRank.map(r => `
-              <div class="liq-row">
-                <span>${esc(r.nombre)}</span>
-                <span>${fmtMoney(r.vendido)}</span>
-                <span>${r.pct}%</span>
-                <span style="color:var(--accent);font-weight:600">${fmtMoney(r.vendido * r.pct / 100)}</span>
-              </div>
-            `).join('')}
+            ${liqRank.map(r => {
+              const cobradoSinMauri = r.cobrado - r.mauri;
+              const comision = r.vendido * r.pct / 100;
+              const aRendir = cobradoSinMauri - comision;
+              return `
+                <div class="liq-row">
+                  <span>${esc(r.nombre)}</span>
+                  <span>${fmtMoney(r.vendido)}</span>
+                  <span>${fmtMoney(r.cobrado)}</span>
+                  <span style="color:#a855f7">${fmtMoney(r.mauri)}</span>
+                  <span>${r.pct}%</span>
+                  <span style="color:var(--accent);font-weight:600">${fmtMoney(aRendir)}</span>
+                </div>
+              `;
+            }).join('')}
           </div>
         `;
       }

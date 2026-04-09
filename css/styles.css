@@ -272,6 +272,20 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   color: var(--accent);
 }
 
+.toggle-btn-mauri {
+  border-color: #a855f7;
+  color: #a855f7;
+}
+.toggle-btn-mauri:hover, .toggle-btn-mauri:active {
+  background: rgba(168, 85, 247, 0.15);
+  border-color: #a855f7;
+}
+.toggle-btn-mauri.active {
+  background: #a855f7;
+  color: #fff;
+  border-color: #a855f7;
+}
+
 /* ── Status indicators ── */
 .badge {
   display: inline-flex;
@@ -599,6 +613,11 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+.pago-split-row-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
 }
 .pago-split-row .form-group { margin-bottom: 4px; }
 .pago-summary {

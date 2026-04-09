@@ -186,7 +186,7 @@ const Historial = {
           <p><strong>Total:</strong> ${fmtMoney(e.monto_total)}</p>
           <p><strong>Pagado:</strong> ${fmtMoney(e.monto_pagado)}</p>
           ${saldo > 0 ? `<p><strong>Debe:</strong> <span class="text-red">${fmtMoney(saldo)}</span></p>` : ''}
-          <p><strong>Forma de pago:</strong> ${esc(e.forma_pago)}</p>
+          <p><strong>Forma de pago:</strong> ${{efectivo:'Efectivo',transferencia:'Transferencia',transferencia_mauri:'Transfer. Mauri',mixto:'Mixto',fiado:'Fiado'}[e.forma_pago] || esc(e.forma_pago)}</p>
           ${e.notas ? `<p><strong>Notas:</strong> ${esc(e.notas)}</p>` : ''}
         </div>
 

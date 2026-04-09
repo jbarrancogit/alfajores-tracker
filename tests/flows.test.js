@@ -263,12 +263,34 @@ describe('Metrics invariant: Cobrado = Efectivo + Transferencia', () => {
     expect(ef + tr).toBe(5000);
   });
 
-  it('holds with zero pagos', () => {
-    let ef = 0, tr = 0;
-    expect(ef + tr).toBe(0);
+  it('holds with transferencia_mauri included', () => {
+    const pagos = [
+      makePago({ monto: 10000, forma_pago: 'efectivo' }),
+      makePago({ monto: 5000, forma_pago: 'transferencia' }),
+      makePago({ monto: 8000, forma_pago: 'transferencia_mauri' }),
+    ];
+
+    let ef = 0, tr = 0, ma = 0;
+    pagos.forEach(p => {
+      if (p.forma_pago === 'efectivo') ef += Number(p.monto);
+      else if (p.forma_pago === 'transferencia') tr += Number(p.monto);
+      else if (p.forma_pago === 'transferencia_mauri') ma += Number(p.monto);
+    });
+    const cobrado = ef + tr + ma;
+
+    expect(cobrado).toBe(23000);
+    expect(ef).toBe(10000);
+    expect(tr).toBe(5000);
+    expect(ma).toBe(8000);
+    expect(cobrado).toBe(ef + tr + ma); // THE INVARIANT with 3 methods
   });
 
-  it('Pendiente = Vendido - Cobrado', () => {
+  it('holds with zero pagos', () => {
+    let ef = 0, tr = 0, ma = 0;
+    expect(ef + tr + ma).toBe(0);
+  });
+
+  it('Pendiente = Vendido - Cobrado (with mauri)', () => {
     const entregas = [
       makeEntrega({ monto_total: 50000 }),
       makeEntrega({ monto_total: 30000 }),
@@ -276,20 +298,22 @@ describe('Metrics invariant: Cobrado = Efectivo + Transferencia', () => {
     const pagos = [
       makePago({ monto: 20000, forma_pago: 'efectivo' }),
       makePago({ monto: 10000, forma_pago: 'transferencia' }),
+      makePago({ monto: 5000, forma_pago: 'transferencia_mauri' }),
     ];
 
     const vendido = entregas.reduce((s, e) => s + Number(e.monto_total), 0);
-    let ef = 0, tr = 0;
+    let ef = 0, tr = 0, ma = 0;
     pagos.forEach(p => {
       if (p.forma_pago === 'efectivo') ef += Number(p.monto);
       else if (p.forma_pago === 'transferencia') tr += Number(p.monto);
+      else if (p.forma_pago === 'transferencia_mauri') ma += Number(p.monto);
     });
-    const cobrado = ef + tr;
+    const cobrado = ef + tr + ma;
     const pendiente = vendido - cobrado;
 
     expect(vendido).toBe(80000);
-    expect(cobrado).toBe(30000);
-    expect(pendiente).toBe(50000);
+    expect(cobrado).toBe(35000);
+    expect(pendiente).toBe(45000);
     expect(pendiente).toBe(vendido - cobrado); // INVARIANT
   });
 });
@@ -538,6 +562,20 @@ describe('Liquidación — commission per repartidor', () => {
     const pct = 20;
     const comision = vendido * pct / 100;
     expect(comision).toBe(100000);
+  });
+
+  it('a rendir = cobrado sin mauri - comision', () => {
+    const vendido = 500000;
+    const cobrado = 350000; // efectivo + transfer + mauri
+    const mauri = 80000;
+    const pct = 20;
+    const cobradoSinMauri = cobrado - mauri; // 270000
+    const comision = vendido * pct / 100;    // 100000
+    const aRendir = cobradoSinMauri - comision; // 170000
+
+    expect(cobradoSinMauri).toBe(270000);
+    expect(comision).toBe(100000);
+    expect(aRendir).toBe(170000);
   });
 
   it('groups by repartidor correctly', () => {
