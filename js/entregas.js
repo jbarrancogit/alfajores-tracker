@@ -12,6 +12,15 @@ const Entregas = {
           .select('*')
           .eq('entrega_id', e.id);
         existingLineas = data || [];
+
+        // Fetch existing pagos to pre-populate payment fields
+        const { data: pagosData } = await db.from('pagos')
+          .select('monto, forma_pago')
+          .eq('entrega_id', e.id);
+        const existingPagos = pagosData || [];
+        e._pagoEfectivo = existingPagos.filter(p => p.forma_pago === 'efectivo').reduce((s, p) => s + Number(p.monto), 0) || '';
+        e._pagoTransfer = existingPagos.filter(p => p.forma_pago === 'transferencia').reduce((s, p) => s + Number(p.monto), 0) || '';
+        e._pagoMauri = existingPagos.filter(p => p.forma_pago === 'transferencia_mauri').reduce((s, p) => s + Number(p.monto), 0) || '';
       }
 
       // Build a map of existing lines by tipo_alfajor_id
@@ -191,6 +200,11 @@ const Entregas = {
           if (npContacto) npContacto.value = draft.nuevoPuntoContacto || '';
           if (npTel) npTel.value = draft.nuevoPuntoTel || '';
         }
+      }
+
+      // Recalculate payment summary for edit mode
+      if (isEdit) {
+        Entregas.calcPagado();
       }
 
       // Attach draft-save listeners for new entregas
@@ -437,6 +451,20 @@ const Entregas = {
         const lineRows = lines.map(l => ({ ...l, entrega_id: entregaId }));
         const { error: lineErr } = await db.from('entrega_lineas').insert(lineRows);
         if (lineErr) throw lineErr;
+
+        // Reconcile payments: delete existing and recreate from form
+        // (DB triggers will sync monto_pagado & forma_pago on entregas)
+        // RLS: pagos_delete requires admin — only admin can edit payments
+        if (Auth.isAdmin()) {
+          await db.from('pagos').delete().eq('entrega_id', editId);
+          const pagosEdit = [];
+          if (pagoEf > 0) pagosEdit.push({ entrega_id: editId, monto: pagoEf, forma_pago: 'efectivo', registrado_por: Auth.currentUser.id });
+          if (pagoTr > 0) pagosEdit.push({ entrega_id: editId, monto: pagoTr, forma_pago: 'transferencia', registrado_por: Auth.currentUser.id });
+          if (pagoMa > 0) pagosEdit.push({ entrega_id: editId, monto: pagoMa, forma_pago: 'transferencia_mauri', registrado_por: Auth.currentUser.id });
+          if (pagosEdit.length > 0) {
+            await db.from('pagos').insert(pagosEdit);
+          }
+        }
       } else {
         const { data, error } = await db.from('entregas').insert(row).select().single();
         if (error) throw error;
