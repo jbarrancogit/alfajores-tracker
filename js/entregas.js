@@ -143,6 +143,12 @@ const Entregas = {
           </div>
 
           <div class="section-title">Pago</div>
+          ${isEdit && !Auth.isAdmin() ? `
+          <p class="text-sm text-muted" style="padding:4px 0">Solo admin puede modificar pagos</p>
+          <input type="hidden" id="ent-pago-efectivo" value="${e._pagoEfectivo || ''}">
+          <input type="hidden" id="ent-pago-transfer" value="${e._pagoTransfer || ''}">
+          <input type="hidden" id="ent-pago-mauri" value="${e._pagoMauri || ''}">
+          ` : `
           <div class="pago-split-row-3">
             <div class="form-group">
               <label class="form-label">Efectivo</label>
@@ -166,6 +172,7 @@ const Entregas = {
                      oninput="Entregas.calcPagado()">
             </div>
           </div>
+          `}
           <div class="pago-summary" id="pago-summary"></div>
 
           <div class="form-group">

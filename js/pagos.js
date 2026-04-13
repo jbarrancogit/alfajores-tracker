@@ -17,25 +17,7 @@ const Pagos = {
       registrado_por: Auth.currentUser.id
     });
     if (pagoErr) throw pagoErr;
-
-    // Re-derive monto_pagado by summing ALL pagos for this entrega
-    const { data: allPagos } = await db.from('pagos')
-      .select('monto, forma_pago')
-      .eq('entrega_id', entregaId);
-    const nuevoMontoPagado = (allPagos || []).reduce((sum, p) => sum + Number(p.monto), 0);
-
-    // Derive forma_pago from all pagos for this entrega
-    const methods = new Set((allPagos || []).map(p => p.forma_pago));
-    let formaActual = 'fiado';
-    if (methods.size === 1) formaActual = [...methods][0];
-    else if (methods.size > 1) formaActual = 'mixto';
-
-    const { error: updateErr } = await db.from('entregas')
-      .update({ monto_pagado: nuevoMontoPagado, forma_pago: formaActual })
-      .eq('id', entregaId);
-    if (updateErr) throw updateErr;
-
-    return nuevoMontoPagado;
+    // DB trigger (trg_sync_pago_upsert) auto-syncs entregas.monto_pagado & forma_pago
   },
 
   /** Fetch payment history for an entrega */
@@ -271,6 +253,7 @@ const Pagos = {
     btn.textContent = 'Procesando...';
 
     const formaPago = document.getElementById('pago-todo-forma').value;
+    let exitosos = 0;
 
     try {
       const { data } = await db.from('entregas')
@@ -279,7 +262,6 @@ const Pagos = {
 
       const impagas = (data || []).filter(e => Number(e.monto_pagado) < Number(e.monto_total));
 
-      let exitosos = 0;
       for (const e of impagas) {
         const deuda = Number(e.monto_total) - Number(e.monto_pagado);
         await Pagos.registrar(e.id, deuda, formaPago);
