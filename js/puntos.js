@@ -184,5 +184,89 @@ const Puntos = {
     } catch (err) {
       showToast('Error: ' + (err.message || err));
     }
-  }
+  },
+
+  renderFilterCombobox(opts) {
+    const { inputId, hiddenId, dropdownId, includeAll = true } = opts;
+    const placeholder = includeAll ? 'Todos los puntos' : 'Buscar punto...';
+    return `
+      <div class="punto-selector" id="${inputId}-wrap" data-include-all="${includeAll}">
+        <input class="form-input" id="${inputId}" type="text"
+               placeholder="${placeholder}" autocomplete="off"
+               onfocus="Puntos._openFilterDropdown('${inputId}', '${hiddenId}', '${dropdownId}')"
+               oninput="Puntos._onFilterInput('${inputId}', '${hiddenId}', '${dropdownId}')">
+        <input type="hidden" id="${hiddenId}" value="">
+        <div class="punto-dropdown hidden" id="${dropdownId}"></div>
+      </div>
+    `;
+  },
+
+  _openFilterDropdown(inputId, hiddenId, dropdownId) {
+    const dd = document.getElementById(dropdownId);
+    if (!dd) return;
+    dd.classList.remove('hidden');
+    Puntos._renderFilterOptions(inputId, hiddenId, dropdownId);
+    setTimeout(() => {
+      const handler = (e) => {
+        const wrap = document.getElementById(inputId + '-wrap');
+        if (wrap && !wrap.contains(e.target)) {
+          dd.classList.add('hidden');
+          document.removeEventListener('click', handler);
+        }
+      };
+      document.removeEventListener('click', Puntos._closeFilterHandler);
+      Puntos._closeFilterHandler = handler;
+      document.addEventListener('click', handler);
+    }, 0);
+  },
+
+  _onFilterInput(inputId, hiddenId, dropdownId) {
+    const input = document.getElementById(inputId);
+    const hidden = document.getElementById(hiddenId);
+    if (hidden) hidden.value = '';
+    Puntos._renderFilterOptions(inputId, hiddenId, dropdownId);
+    input.dispatchEvent(new CustomEvent('punto-text-change', {
+      bubbles: true, detail: { text: input.value }
+    }));
+  },
+
+  _renderFilterOptions(inputId, hiddenId, dropdownId) {
+    const input = document.getElementById(inputId);
+    const dd = document.getElementById(dropdownId);
+    const wrap = document.getElementById(inputId + '-wrap');
+    if (!input || !dd || !wrap) return;
+    const includeAll = wrap.dataset.includeAll === 'true';
+
+    const q = (input.value || '').toLowerCase();
+    const matches = Puntos.cache.filter(p =>
+      p.nombre.toLowerCase().includes(q) ||
+      (p.direccion || '').toLowerCase().includes(q)
+    );
+
+    const allOpt = includeAll ? `
+      <div class="punto-option" onclick="Puntos._selectFilterOption('${inputId}', '${hiddenId}', '${dropdownId}', '', '')">
+        <div class="punto-option-name">Todos los puntos</div>
+      </div>
+    ` : '';
+
+    dd.innerHTML = allOpt + matches.map(p => `
+      <div class="punto-option" onclick="Puntos._selectFilterOption('${inputId}', '${hiddenId}', '${dropdownId}', '${p.id}', '${escJs(p.nombre)}')">
+        <div class="punto-option-name">${esc(p.nombre)}</div>
+        ${p.direccion ? `<div class="punto-option-detail">${esc(p.direccion)}</div>` : ''}
+      </div>
+    `).join('');
+  },
+
+  _selectFilterOption(inputId, hiddenId, dropdownId, puntoId, puntoNombre) {
+    const input = document.getElementById(inputId);
+    const hidden = document.getElementById(hiddenId);
+    const dd = document.getElementById(dropdownId);
+    if (input) input.value = puntoNombre;
+    if (hidden) hidden.value = puntoId;
+    if (dd) dd.classList.add('hidden');
+    if (Puntos._closeFilterHandler) document.removeEventListener('click', Puntos._closeFilterHandler);
+    input.dispatchEvent(new CustomEvent('punto-select', {
+      bubbles: true, detail: { puntoId, puntoNombre }
+    }));
+  },
 };
