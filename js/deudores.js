@@ -163,6 +163,50 @@ const Deudores = {
   },
 
   renderList() {
-    // Implemented in Task 6
+    const list = document.getElementById('deud-list');
+    const header = document.getElementById('deud-header');
+    if (!list) return;
+
+    const filtered = Deudores._sort(Deudores._filter(Deudores._data, Deudores.filters.search), Deudores.filters.orden);
+
+    if (header) {
+      const totalSaldo = filtered.reduce((s, d) => s + d.saldo, 0);
+      const filteredEntregas = Deudores._filter(Deudores._unpaidEntregas, Deudores.filters.search);
+      const showFlatBtn = Deudores.filters.search && filteredEntregas.length > 0;
+
+      header.innerHTML = filtered.length === 0 ? '' : `
+        <div class="metric-card" style="margin-bottom:8px">
+          <div class="metric-label">${filtered.length} ${filtered.length === 1 ? 'cliente' : 'clientes'} · ${filteredEntregas.length} factura${filteredEntregas.length === 1 ? '' : 's'} pendiente${filteredEntregas.length === 1 ? '' : 's'}</div>
+          <div class="metric-value text-red">${fmtMoney(totalSaldo)}</div>
+          ${showFlatBtn ? `
+          <button class="btn btn-secondary btn-block mt-8" onclick="Deudores.showFlatInvoicesModal('${escJs(Deudores.filters.search)}')">
+            Ver todas las facturas pendientes
+          </button>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    if (filtered.length === 0) {
+      list.innerHTML = Deudores.filters.search
+        ? '<div class="empty-state"><p>No hay deudores que coincidan con esa búsqueda</p></div>'
+        : '<div class="empty-state"><p>Sin deudas pendientes</p></div>';
+      return;
+    }
+
+    list.innerHTML = filtered.map(d => {
+      const diasAtras = Math.floor((Date.now() - new Date(d.primeraFechaPendiente).getTime()) / 86400000);
+      return `
+        <div class="list-item" onclick="Pagos.showDeudorModal('${d.puntoId}', '${escJs(d.nombre)}')">
+          <div class="list-item-content">
+            <div class="list-item-title">${esc(d.nombre)}</div>
+            <div class="list-item-subtitle">${d.entregasPendientes} pendiente${d.entregasPendientes === 1 ? '' : 's'} · más vieja hace ${diasAtras}d</div>
+          </div>
+          <div class="list-item-right">
+            <div class="list-item-amount text-red">${fmtMoney(d.saldo)}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
   },
 };

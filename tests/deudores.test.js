@@ -160,6 +160,75 @@ describe('Deudores._sort — pure sort function', () => {
   });
 });
 
+describe('Deudores.renderList — list rendering', () => {
+  beforeEach(() => {
+    document.body.innerHTML = `
+      <div id="deud-header"></div>
+      <div id="deud-list"></div>
+    `;
+    Deudores._data = [];
+    Deudores._unpaidEntregas = [];
+    Deudores.filters = { orden: 'saldo', search: '', repartidorId: '' };
+  });
+
+  it('shows empty state when _data is empty', () => {
+    Deudores.renderList();
+    const list = document.getElementById('deud-list');
+    expect(list.innerHTML).toContain('empty-state');
+    expect(list.innerHTML).toContain('Sin deudas pendientes');
+  });
+
+  it('shows no-match message when search has no results', () => {
+    Deudores._data = [{ puntoId: 'p1', nombre: 'Don Pedro', saldo: 100, entregasPendientes: 1, primeraFechaPendiente: '2026-04-01' }];
+    Deudores.filters.search = 'xyz';
+    Deudores.renderList();
+    const list = document.getElementById('deud-list');
+    expect(list.innerHTML).toContain('No hay deudores que coincidan');
+  });
+
+  it('renders a list-item per deudor with name and saldo', () => {
+    Deudores._data = [
+      { puntoId: 'p1', nombre: 'Benedetti', saldo: 1000, entregasPendientes: 2, primeraFechaPendiente: '2026-04-01T10:00:00Z' }
+    ];
+    Deudores.renderList();
+    const list = document.getElementById('deud-list');
+    expect(list.innerHTML).toContain('list-item');
+    expect(list.innerHTML).toContain('Benedetti');
+    expect(list.innerHTML).toContain('Pagos.showDeudorModal');
+  });
+
+  it('shows aggregate header with count and total saldo', () => {
+    Deudores._data = [
+      { puntoId: 'p1', nombre: 'A', saldo: 100, entregasPendientes: 1, primeraFechaPendiente: '2026-04-01' },
+      { puntoId: 'p2', nombre: 'B', saldo: 200, entregasPendientes: 1, primeraFechaPendiente: '2026-04-02' }
+    ];
+    Deudores.renderList();
+    const header = document.getElementById('deud-header');
+    expect(header.innerHTML).toContain('2');     // 2 clientes
+    expect(header.innerHTML).toMatch(/300/);     // total saldo
+  });
+
+  it('shows "Ver todas las facturas pendientes" button when search active and matches exist', () => {
+    Deudores._data = [{ puntoId: 'p1', nombre: 'Benedetti', saldo: 100, entregasPendientes: 1, primeraFechaPendiente: '2026-04-01' }];
+    Deudores._unpaidEntregas = [
+      { id: 'e1', puntoId: 'p1', nombre: 'Benedetti', fecha_hora: '2026-04-01', monto_total: 200, pagado: 100, saldo: 100, entrega_lineas: [] }
+    ];
+    Deudores.filters.search = 'bene';
+    Deudores.renderList();
+    const header = document.getElementById('deud-header');
+    expect(header.innerHTML).toContain('Ver todas las facturas pendientes');
+    expect(header.innerHTML).toContain('showFlatInvoicesModal');
+  });
+
+  it('does NOT show flat-invoices button when search is empty', () => {
+    Deudores._data = [{ puntoId: 'p1', nombre: 'Benedetti', saldo: 100, entregasPendientes: 1, primeraFechaPendiente: '2026-04-01' }];
+    Deudores.filters.search = '';
+    Deudores.renderList();
+    const header = document.getElementById('deud-header');
+    expect(header.innerHTML).not.toContain('Ver todas las facturas pendientes');
+  });
+});
+
 describe('Deudores.render — HTML output', () => {
   beforeEach(() => {
     vi.spyOn(Deudores, 'loadData').mockResolvedValue(undefined);
