@@ -120,6 +120,8 @@ const Historial = {
 
     if (!data || data.length === 0) {
       listEl.innerHTML = '<div class="empty-state"><p>Sin entregas en este período</p></div>';
+      Historial._data = [];
+      Historial._renderClientHeader();
       return;
     }
 
