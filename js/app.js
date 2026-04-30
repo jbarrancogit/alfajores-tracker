@@ -5,6 +5,7 @@ const App = {
     '/': () => Dashboard.render(),
     '/entrega': () => Entregas.renderForm(),
     '/historial': () => Historial.render(),
+    '/deudores': () => Deudores.render(),
     '/ruta': () => Ruta.render(),
     '/analisis': () => Analisis.render(),
     '/config': () => Config.render(),
