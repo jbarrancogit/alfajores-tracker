@@ -159,3 +159,30 @@ describe('Deudores._sort — pure sort function', () => {
     expect(sorted).toHaveLength(3);
   });
 });
+
+describe('Deudores.render — HTML output', () => {
+  it('returns HTML containing app-header with Deudores title', () => {
+    const html = Deudores.render();
+    expect(html).toContain('app-header');
+    expect(html).toContain('Deudores');
+  });
+
+  it('contains search input', () => {
+    const html = Deudores.render();
+    expect(html).toContain('id="deud-search"');
+    expect(html).toContain('Buscar cliente');
+  });
+
+  it('contains the three order chips: saldo / antiguedad / alfabetico', () => {
+    const html = Deudores.render();
+    expect(html).toContain("setOrden(this, 'saldo')");
+    expect(html).toContain("setOrden(this, 'antiguedad')");
+    expect(html).toContain("setOrden(this, 'alfabetico')");
+  });
+
+  it('contains placeholder containers for header and list', () => {
+    const html = Deudores.render();
+    expect(html).toContain('id="deud-header"');
+    expect(html).toContain('id="deud-list"');
+  });
+});
