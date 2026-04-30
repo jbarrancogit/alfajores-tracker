@@ -209,4 +209,53 @@ const Deudores = {
       `;
     }).join('');
   },
+
+  showFlatInvoicesModal(searchText) {
+    const matches = Deudores._filter(Deudores._unpaidEntregas, searchText)
+      .sort((a, b) => (a.fecha_hora || '').localeCompare(b.fecha_hora || ''));
+    const totalSaldo = matches.reduce((s, e) => s + e.saldo, 0);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.onclick = (ev) => { if (ev.target === overlay) overlay.remove(); };
+
+    const body = matches.length === 0
+      ? '<p class="text-sm text-muted">Sin facturas pendientes para esta búsqueda</p>'
+      : matches.map(e => {
+          const lineas = (e.entrega_lineas || []).map(l =>
+            `${esc(l.tipos_alfajor?.nombre || '?')}: ${l.cantidad}`
+          ).join(', ');
+          return `
+            <div class="deudor-entrega">
+              <div class="deudor-entrega-header">
+                <span class="text-sm"><strong>${esc(e.nombre)}</strong> · ${fmtDateTime(e.fecha_hora)}</span>
+                <span class="text-red" style="font-weight:600">${fmtMoney(e.saldo)}</span>
+              </div>
+              <div class="deudor-entrega-detail">${lineas || ''}</div>
+              <div class="deudor-entrega-detail">Total: ${fmtMoney(e.monto_total)} · Pagado: ${fmtMoney(e.pagado)}</div>
+              <div id="flat-pago-slot-${e.id}" style="margin-top:8px">
+                <button class="btn btn-secondary btn-block" style="min-height:36px;font-size:0.8rem"
+                        onclick="this.parentElement.innerHTML = Pagos.renderFormInline('${e.id}', ${e.saldo})">
+                  Registrar pago
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+    overlay.innerHTML = `
+      <div class="modal">
+        <div class="flex-between mb-16">
+          <h2>Facturas pendientes${searchText ? ' · "' + esc(searchText) + '"' : ''}</h2>
+          <button class="btn-icon" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+        </div>
+        <div class="flex-between mb-16">
+          <span class="text-sm text-muted">${matches.length} factura${matches.length === 1 ? '' : 's'}</span>
+          <span class="text-red" style="font-weight:700">${fmtMoney(totalSaldo)}</span>
+        </div>
+        ${body}
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  },
 };

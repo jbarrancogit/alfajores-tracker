@@ -229,6 +229,52 @@ describe('Deudores.renderList — list rendering', () => {
   });
 });
 
+describe('Deudores.showFlatInvoicesModal — flat invoices modal', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '<div id="app"></div>';
+    Deudores._unpaidEntregas = [
+      { id: 'e1', puntoId: 'pN', nombre: 'Benedetti Norte', fecha_hora: '2026-04-15T10:00:00Z',
+        monto_total: 1000, pagado: 0, saldo: 1000, entrega_lineas: [] },
+      { id: 'e2', puntoId: 'pS', nombre: 'Benedetti Sur', fecha_hora: '2026-04-01T10:00:00Z',
+        monto_total: 2000, pagado: 500, saldo: 1500, entrega_lineas: [] },
+      { id: 'e3', puntoId: 'p3', nombre: 'Don Pedro', fecha_hora: '2026-04-10T10:00:00Z',
+        monto_total: 500, pagado: 0, saldo: 500, entrega_lineas: [] }
+    ];
+  });
+
+  it('opens a modal with only matching invoices', () => {
+    Deudores.showFlatInvoicesModal('benedetti');
+    const overlay = document.querySelector('.modal-overlay');
+    expect(overlay).not.toBeNull();
+    expect(overlay.innerHTML).toContain('Benedetti Norte');
+    expect(overlay.innerHTML).toContain('Benedetti Sur');
+    expect(overlay.innerHTML).not.toContain('Don Pedro');
+  });
+
+  it('orders matching invoices by fecha asc (oldest first)', () => {
+    Deudores.showFlatInvoicesModal('benedetti');
+    const overlay = document.querySelector('.modal-overlay');
+    const html = overlay.innerHTML;
+    const idxSur = html.indexOf('Benedetti Sur');     // older (Apr 1)
+    const idxNorte = html.indexOf('Benedetti Norte'); // newer (Apr 15)
+    expect(idxSur).toBeLessThan(idxNorte);
+  });
+
+  it('includes "Registrar pago" button per invoice', () => {
+    Deudores.showFlatInvoicesModal('benedetti');
+    const overlay = document.querySelector('.modal-overlay');
+    const buttons = overlay.querySelectorAll('button');
+    const registrarBtns = Array.from(buttons).filter(b => b.textContent.includes('Registrar pago'));
+    expect(registrarBtns.length).toBe(2);
+  });
+
+  it('shows empty message when no matches', () => {
+    Deudores.showFlatInvoicesModal('xyz-no-match');
+    const overlay = document.querySelector('.modal-overlay');
+    expect(overlay.innerHTML).toContain('Sin facturas pendientes');
+  });
+});
+
 describe('Deudores.render — HTML output', () => {
   beforeEach(() => {
     vi.spyOn(Deudores, 'loadData').mockResolvedValue(undefined);
