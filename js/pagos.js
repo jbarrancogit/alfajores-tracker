@@ -96,6 +96,7 @@ const Pagos = {
       if (overlay) overlay.remove();
       if (App.currentRoute === '/historial') Historial.fetchEntregas();
       else if (App.currentRoute === '/') Dashboard.loadData();
+      else if (App.currentRoute === '/deudores') Deudores.loadData();
       else if (App.currentRoute === '/analisis') Analisis.loadData();
     } catch (err) {
       console.error('Error registrando pago:', err);
@@ -234,6 +235,7 @@ const Pagos = {
       if (overlay) overlay.remove();
       if (App.currentRoute === '/historial') Historial.fetchEntregas();
       else if (App.currentRoute === '/') Dashboard.loadData();
+      else if (App.currentRoute === '/deudores') Deudores.loadData();
       else if (App.currentRoute === '/analisis') Analisis.loadData();
     } catch (err) {
       console.error('Error eliminando pago:', err);
@@ -272,6 +274,7 @@ const Pagos = {
       const overlay = document.querySelector('.modal-overlay');
       if (overlay) overlay.remove();
       if (App.currentRoute === '/') Dashboard.loadData();
+      else if (App.currentRoute === '/deudores') Deudores.loadData();
       else if (App.currentRoute === '/analisis') Analisis.loadData();
     } catch (err) {
       console.error('Error pagando todo:', err);
