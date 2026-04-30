@@ -101,3 +101,33 @@ describe('Deudores._aggregate — pure aggregation', () => {
     expect(result.porPunto[0].ultimaFechaPendiente).toBe('2026-04-20T10:00:00Z');
   });
 });
+
+describe('Deudores._filter — pure substring filter', () => {
+  const data = [
+    { nombre: 'Benedetti Norte', saldo: 1000 },
+    { nombre: 'Benedetti Sur', saldo: 2000 },
+    { nombre: 'Don Pedro', saldo: 500 }
+  ];
+
+  it('matches case-insensitive substring "bene"', () => {
+    expect(Deudores._filter(data, 'bene')).toHaveLength(2);
+  });
+
+  it('matches uppercase BENEDETTI', () => {
+    expect(Deudores._filter(data, 'BENEDETTI')).toHaveLength(2);
+  });
+
+  it('returns full array on empty search', () => {
+    expect(Deudores._filter(data, '')).toHaveLength(3);
+  });
+
+  it('returns empty array on no match', () => {
+    expect(Deudores._filter(data, 'xyz')).toHaveLength(0);
+  });
+
+  it('does NOT normalize accents (Lopez does not match López)', () => {
+    const accented = [{ nombre: 'López' }];
+    expect(Deudores._filter(accented, 'lopez')).toHaveLength(0);
+    expect(Deudores._filter(accented, 'López')).toHaveLength(1);
+  });
+});

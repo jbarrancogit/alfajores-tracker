@@ -53,6 +53,12 @@ const Deudores = {
     };
   },
 
+  _filter(data, search) {
+    if (!search) return data;
+    const q = search.toLowerCase();
+    return data.filter(d => (d.nombre || '').toLowerCase().includes(q));
+  },
+
   render() {
     return `
       <div class="app-header">
