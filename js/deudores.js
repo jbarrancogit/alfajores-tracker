@@ -4,6 +4,55 @@ const Deudores = {
   _unpaidEntregas: [],
   _fetchId: 0,
 
+  _aggregate(entregas, pagos) {
+    const pagadoPorEntrega = {};
+    (pagos || []).forEach(p => {
+      pagadoPorEntrega[p.entrega_id] = (pagadoPorEntrega[p.entrega_id] || 0) + Number(p.monto);
+    });
+
+    const unpaidEntregas = [];
+    const porPuntoMap = {};
+
+    (entregas || []).forEach(e => {
+      if (!e.punto_entrega_id) return;
+      const pagado = pagadoPorEntrega[e.id] || 0;
+      const saldo = Number(e.monto_total) - pagado;
+      if (saldo <= 0) return;
+
+      const nombre = e.puntos_entrega?.nombre || '?';
+      unpaidEntregas.push({
+        id: e.id,
+        puntoId: e.punto_entrega_id,
+        nombre,
+        fecha_hora: e.fecha_hora,
+        monto_total: Number(e.monto_total),
+        pagado,
+        saldo,
+        entrega_lineas: e.entrega_lineas || []
+      });
+
+      const key = e.punto_entrega_id;
+      if (!porPuntoMap[key]) {
+        porPuntoMap[key] = {
+          puntoId: key, nombre,
+          saldo: 0, entregasPendientes: 0,
+          primeraFechaPendiente: e.fecha_hora,
+          ultimaFechaPendiente: e.fecha_hora
+        };
+      }
+      const p = porPuntoMap[key];
+      p.saldo += saldo;
+      p.entregasPendientes++;
+      if (e.fecha_hora < p.primeraFechaPendiente) p.primeraFechaPendiente = e.fecha_hora;
+      if (e.fecha_hora > p.ultimaFechaPendiente) p.ultimaFechaPendiente = e.fecha_hora;
+    });
+
+    return {
+      porPunto: Object.values(porPuntoMap),
+      unpaidEntregas
+    };
+  },
+
   render() {
     return `
       <div class="app-header">
