@@ -23,6 +23,7 @@ const Historial = {
         </select>
         ` : ''}
       </div>
+      <div id="hist-client-header"></div>
       <div id="hist-list"><div class="spinner mt-8"></div></div>
     `;
   },
@@ -147,6 +148,7 @@ const Historial = {
     }
 
     Historial._data = data;
+    Historial._renderClientHeader();
    } catch (err) {
     console.error('Historial error:', err);
     showToast('Error cargando historial');
@@ -254,5 +256,51 @@ const Historial = {
     console.error('Historial detail error:', err);
     showToast('Error cargando detalle');
    }
+  },
+
+  _aggregateClientHeader(entregas) {
+    const puntos = new Set();
+    let vendido = 0, cobrado = 0;
+    (entregas || []).forEach(e => {
+      vendido += Number(e.monto_total) || 0;
+      cobrado += Number(e.monto_pagado) || 0;
+      if (e.punto_entrega_id) puntos.add(e.punto_entrega_id);
+    });
+    return { vendido, cobrado, saldo: vendido - cobrado, puntosCount: puntos.size };
+  },
+
+  _renderClientHeader() {
+    const headerEl = document.getElementById('hist-client-header');
+    if (!headerEl) return;
+
+    const hasFilter = Historial.filters.puntoId || Historial.filters.puntoSearchText;
+    if (!hasFilter || !Historial._data || Historial._data.length === 0) {
+      headerEl.innerHTML = '';
+      return;
+    }
+
+    const agg = Historial._aggregateClientHeader(Historial._data);
+    let title;
+    if (Historial.filters.puntoId) {
+      const p = Puntos.cache.find(x => x.id === Historial.filters.puntoId);
+      title = p ? esc(p.nombre) : 'Cliente';
+    } else {
+      title = `"${esc(Historial.filters.puntoSearchText)}"`;
+      if (agg.puntosCount > 1) title += ` <span class="text-sm text-muted">(${agg.puntosCount} puntos)</span>`;
+    }
+
+    const saldoColor = agg.saldo > 0 ? 'text-red' : 'text-green';
+    const action = Historial.filters.puntoId
+      ? (agg.saldo > 0 ? `<button class="btn btn-secondary btn-block mt-8" onclick="Pagos.showDeudorModal('${Historial.filters.puntoId}', '${escJs(title)}')">Ver cuenta corriente</button>` : '')
+      : (agg.saldo > 0 ? `<button class="btn btn-secondary btn-block mt-8" onclick="Deudores.showFlatInvoicesModal('${escJs(Historial.filters.puntoSearchText)}')">Ver todas las facturas pendientes</button>` : '');
+
+    headerEl.innerHTML = `
+      <div class="metric-card" style="margin-bottom:8px">
+        <div class="metric-label">${title}</div>
+        <div class="text-sm">Vendido: ${fmtMoney(agg.vendido)} · Cobrado: ${fmtMoney(agg.cobrado)}</div>
+        <div class="metric-value ${saldoColor}">Saldo: ${fmtMoney(agg.saldo)}</div>
+        ${action}
+      </div>
+    `;
   }
 };

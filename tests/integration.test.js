@@ -299,3 +299,31 @@ describe('Historial._resolvePuntoIds — substring resolver', () => {
     expect(Historial._resolvePuntoIds('xyz', cache)).toEqual([]);
   });
 });
+
+describe('Historial._aggregateClientHeader — pure aggregation', () => {
+  it('sums vendido and cobrado from entregas list', () => {
+    const entregas = [
+      { id: 'e1', monto_total: 1000, monto_pagado: 600, punto_entrega_id: 'p1' },
+      { id: 'e2', monto_total: 500, monto_pagado: 500, punto_entrega_id: 'p1' }
+    ];
+    const r = Historial._aggregateClientHeader(entregas);
+    expect(r.vendido).toBe(1500);
+    expect(r.cobrado).toBe(1100);
+    expect(r.saldo).toBe(400);
+  });
+
+  it('counts distinct puntos', () => {
+    const entregas = [
+      { id: 'e1', monto_total: 100, monto_pagado: 0, punto_entrega_id: 'p1' },
+      { id: 'e2', monto_total: 100, monto_pagado: 0, punto_entrega_id: 'p2' },
+      { id: 'e3', monto_total: 100, monto_pagado: 0, punto_entrega_id: 'p1' }
+    ];
+    const r = Historial._aggregateClientHeader(entregas);
+    expect(r.puntosCount).toBe(2);
+  });
+
+  it('returns zeros for empty entregas', () => {
+    const r = Historial._aggregateClientHeader([]);
+    expect(r).toMatchObject({ vendido: 0, cobrado: 0, saldo: 0, puntosCount: 0 });
+  });
+});
