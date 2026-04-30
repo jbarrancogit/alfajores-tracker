@@ -18,19 +18,35 @@ Todo lo demás funciona bien según Emi: *"el resto loco ha funcionado de maravi
 
 - **Dashboard** muestra top-5 deudores agrupados por punto, capeado a últimos 90 días (`dashboard.js:64–95`). Click → `Pagos.showDeudorModal`.
 - **Análisis** tiene una sección "Deudores" exhaustiva (no top-5, todos los del rango seleccionado) en `analisis.js:416–449`. **Solo accesible para admin** (`analisis.js:10` redirige a no-admin). Agrega por punto, click → mismo `Pagos.showDeudorModal`. El rango se controla con los chips de período (Hoy / Semana / Mes / Ciclo 4s / Rango).
-- **`Pagos.showDeudorModal`** (`pagos.js:139`) ya muestra todas las entregas impagas de un punto con "Pagar todo" y pago individual. Es el componente que resuelve el pedido #3 — solo falta mejor descubribilidad.
+- **`Pagos.showDeudorModal`** (`pagos.js:139`) ya muestra todas las entregas impagas de **un solo punto** con "Pagar todo" y pago individual. Resuelve el caso "Benedetti es un único punto" pero **no resuelve "Benedetti tiene varios puntos"** (ej. Benedetti Norte + Benedetti Sur).
 
-**Pregunta abierta para Juan:** ¿Cuál es el rol de Emi en la app, `admin` o `repartidor`? Si es admin, ¿usa la sección Deudores de Análisis o no la encuentra/no le sirve? La respuesta no cambia el alcance (la nueva vista sigue siendo útil porque es accesible para repartidores y no tiene cap temporal), pero confirma la prioridad.
+### Por qué no alcanza con lo que ya hay
+
+Emi es **admin**. Tiene acceso a la sección Deudores de Análisis. **No le sirve** porque:
+
+1. La sección está enterrada al fondo de la pantalla de análisis junto con métricas y rankings — no está pensada como herramienta operativa de cobro, sino como overview analítico.
+2. **No tiene buscador por texto.** Hay que scrollear toda la lista.
+3. **No agrupa múltiples puntos del mismo cliente.** Si "Benedetti" tiene N puntos en la base, ve N filas separadas. Para procesar todos los pagos de Benedetti necesita abrir N modales.
+4. La lista respeta el rango temporal del filtro de Análisis — si elige "Mes" no ve las deudas más viejas, justo las que se "entierran" según su queja.
+
+### Lo que Emi realmente quiere (interpretación profunda del audio 2)
+
+> "marcar varios clientes juntos como en un Excel — escribir Benedetti y que aparezcan TODOS los Benedetti, todas las deudas de las ventas de Benedetti, ahí voy cargando los pagos de cada factura"
+
+El modelo mental es **filtro Excel**: un input que matchea por texto y devuelve todas las filas (facturas) que cumplen, sin importar si pertenecen a uno o varios "puntos" en la DB. Después procesa pagos factura por factura.
+
+Esto requiere **match por substring sobre el nombre del punto**, no `eq` por id.
 
 ## Alcance
 
 **Incluye:**
 
-- Vista nueva `/deudores` accesible para **admin y repartidor**, con todos los deudores del usuario (sin cap temporal), buscador por texto, ordenamiento (saldo / antigüedad / alfabético) y agregados.
-- Buscador combobox por nombre de cliente en `/historial` reemplazando el `<select>` actual.
-- Mini-card con totales agregados (vendido / cobrado / saldo) cuando hay un cliente seleccionado en historial.
+- Vista nueva `/deudores` accesible para **admin y repartidor**, con todos los deudores del usuario (sin cap temporal), buscador por texto **con match por substring** (típo Excel), ordenamiento (saldo / antigüedad / alfabético) y agregados.
+- **Cuando hay búsqueda activa en `/deudores`**, además de la lista por cliente: un **resumen agregado** arriba ("3 puntos · 12 facturas pendientes · $87.000") y un botón **"Ver todas las facturas pendientes"** que abre un modal con TODAS las entregas impagas de TODOS los puntos que matchearon — cada factura con su botón de pago individual. Esto resuelve directamente el caso Benedetti-multi-punto.
+- Buscador combobox por nombre de cliente en `/historial` reemplazando el `<select>` actual. **Soporta dos modos:** (a) seleccionar un punto específico de la lista (`.eq` exacto, comportamiento actual) o (b) escribir texto libre y aplicar como **filtro substring sobre múltiples puntos** (`.in` con los ids que matchean en `Puntos.cache`).
+- Mini-card con totales agregados (vendido / cobrado / saldo) cuando hay uno o más clientes filtrados en historial.
 - Tab nueva en bottom-nav para la vista de deudores.
-- Tests Vitest cargando `js/deudores.js` con `loadScript` (mismo patrón que `tipos.js`/`pagos.js`), cubriendo función pura de agregación, filtros, orden y render HTML.
+- Tests Vitest cargando `js/deudores.js` con `loadScript` (mismo patrón que `tipos.js`/`pagos.js`), cubriendo función pura de agregación, filtros, orden, modo flat-invoices y render HTML.
 - Bump del Service Worker.
 
 **No incluye (YAGNI):**
@@ -88,11 +104,12 @@ const Deudores = {
 **Métodos:**
 
 - `render()` → string HTML inicial. Dispara `loadData()`.
-- `loadData()` → async. Trae todas las entregas del usuario (sin cap temporal; RLS filtra por `repartidor_id` para no-admin), trae los `pagos` con `batchIn`. Llama a `Deudores._aggregate(entregas, pagos)` (función pura, ver abajo). Guarda en `_data` y llama a `renderList()`. Wrap en `try/catch` con `showToast('Error: ' + friendlyError(err))` y `console.error`. Race-guard con `_fetchId`.
-- `_aggregate(entregas, pagos)` → **función pura testeable**. Recibe arrays simples, devuelve array de `{ puntoId, nombre, saldo, entregasPendientes, ultimaFechaPendiente, primeraFechaPendiente }` con saldo > 0. Misma lógica de agregación que `Dashboard.loadData` líneas 70–95 / `Analisis.loadData` líneas 416–430, encapsulada para test.
-- `_filter(data, search)` → función pura. Aplica substring case-insensitive sobre `nombre`.
+- `loadData()` → async. Trae todas las entregas del usuario (sin cap temporal; RLS filtra por `repartidor_id` para no-admin), trae los `pagos` con `batchIn`. Llama a `Deudores._aggregate(entregas, pagos)` y también guarda las entregas impagas crudas en `_unpaidEntregas` (para el modo flat-invoices). Llama a `renderList()`. Wrap en `try/catch` con `showToast('Error: ' + friendlyError(err))` y `console.error`. Race-guard con `_fetchId`.
+- `_aggregate(entregas, pagos)` → **función pura testeable**. Recibe arrays simples, devuelve `{ porPunto: [...], unpaidEntregas: [...] }`. `porPunto`: `{ puntoId, nombre, saldo, entregasPendientes, ultimaFechaPendiente, primeraFechaPendiente }` con saldo > 0. `unpaidEntregas`: lista plana de entregas crudas con saldo > 0 (cada una con `{ id, puntoId, nombre, fecha_hora, monto_total, pagado, saldo, entrega_lineas }` para mostrar en el modal flat). Misma lógica de agregación que `Dashboard.loadData` líneas 70–95 / `Analisis.loadData` líneas 416–430.
+- `_filter(data, search)` → función pura. Aplica substring case-insensitive sobre `nombre`. Sirve para `porPunto` y para filtrar `unpaidEntregas` (ambos tienen `nombre`).
 - `_sort(data, orden)` → función pura. `saldo` desc / `antiguedad` asc por `primeraFechaPendiente` / `alfabetico` asc por `nombre.localeCompare(b.nombre, 'es')`.
-- `renderList()` → llama a `_filter` y `_sort`, genera HTML. También actualiza el header de métricas (total deudores filtrados / suma de saldo).
+- `renderList()` → llama a `_filter` y `_sort` sobre `_data.porPunto`, genera la lista de tarjetas. También actualiza el header de métricas y, **si `filters.search` no está vacío**, muestra un botón "Ver todas las facturas pendientes" (ver `showFlatInvoicesModal`).
+- `showFlatInvoicesModal()` → abre modal con todas las entregas en `_unpaidEntregas` filtradas por `filters.search` (substring sobre `nombre`), ordenadas por antigüedad asc (más vieja arriba). Cada fila muestra: nombre del punto, fecha, monto total, saldo, y botón "Registrar pago" inline (reutilizando `Pagos.renderFormInline`). Permite el flujo "Benedetti me pagó cada factura" sin cerrar el modal.
 - `setOrden(chip, orden)` → cambia chip activo y rerenderiza.
 - `onSearch()` → lee input y llama a `renderList`.
 - `onRepartidorChange()` → solo admin.
@@ -122,32 +139,54 @@ const Deudores = {
 Extraer:
 
 ```js
-Puntos.renderFilterCombobox({ inputId, hiddenId, dropdownId, includeAll = true, onSelect })
+Puntos.renderFilterCombobox({ inputId, hiddenId, dropdownId, includeAll = true, onSelect, onTextChange })
 ```
 
-Diferencia con el existente `renderSelector`:
+Diferencias con el existente `renderSelector`:
 - Sin opción "+ Nuevo".
 - Opción "Todos los puntos" cuando `includeAll`.
-- Llama a `onSelect(puntoId)` en vez de tocar IDs hardcodeados.
+- Llama a `onSelect(puntoId)` cuando el usuario clickea un punto del dropdown.
+- **Nuevo: `onTextChange(text)` se dispara mientras se tipea** — permite a `Historial` aplicar filtro substring multi-punto sin necesidad de seleccionar.
 
 `renderSelector` queda intacto para no romper alta de entrega.
 
+### Filtro substring multi-punto en `/historial`
+
+`Historial.filters` cambia de:
+
+```js
+{ periodo, puntoId, repartidorId }    // antes
+```
+
+a:
+
+```js
+{ periodo, puntoId, puntoSearchText, repartidorId }    // ahora
+```
+
+`puntoId` y `puntoSearchText` son mutuamente excluyentes:
+- Si el usuario **selecciona** un punto del dropdown → `puntoId` se setea, `puntoSearchText = ''`. Query usa `.eq('punto_entrega_id', puntoId)`.
+- Si el usuario **tipea texto sin seleccionar** → `puntoSearchText` se setea, `puntoId = ''`. La función `_resolvePuntoIds(text)` busca en `Puntos.cache` los ids cuyo `nombre` matchea substring case-insensitive, y la query usa `.in('punto_entrega_id', matchingIds)`. Si `matchingIds` está vacío, se muestra empty state sin hacer query (evita query con `.in([])` que devuelve todo).
+- Si el input está vacío, ambos quedan vacíos y no se filtra.
+
+Esto es lo que hace que escribir "Benedetti" muestre las entregas de "Benedetti Norte" + "Benedetti Sur" + cualquier otra variante.
+
 ### Mini-card de agregados en `/historial`
 
-Cuando `Historial.filters.puntoId` está seteado, renderizar arriba de `#hist-list`:
+Cuando `Historial.filters.puntoId` o `Historial.filters.puntoSearchText` están seteados, renderizar arriba de `#hist-list`:
 
 ```
 ┌──────────────────────────────────────┐
-│ Benedetti                            │
+│ Benedetti  (3 puntos)                │  ← "(N puntos)" solo si search matchea más de 1
 │ Vendido: $124k · Cobrado: $82k       │
 │ Saldo: $42k 🔴                       │
-│ [Ver cuenta corriente] ──────────────┤
+│ [Ver cuenta corriente] ──────────────┤  ← solo si saldo > 0 y modo single-punto
 └──────────────────────────────────────┘
 ```
 
-- Cálculo a partir de `Historial._data` ya cargado (sin query extra). Suma `monto_total` y `monto_pagado` de las entregas del punto en el período visible.
-- Botón "Ver cuenta corriente" → `Pagos.showDeudorModal(puntoId, nombre)`.
-- Si `saldo === 0` el badge se muestra verde y desaparece el botón.
+- Cálculo a partir de `Historial._data` ya cargado (sin query extra). Suma `monto_total` y `monto_pagado` de las entregas listadas.
+- Botón "Ver cuenta corriente" solo aparece si la selección es de **un único punto** (modo `puntoId`). En modo multi-punto (`puntoSearchText`), se ofrece en su lugar un botón "Ver todas las facturas pendientes" que abre el mismo modal flat-invoices que `/deudores`. Reutiliza `Deudores.showFlatInvoicesModal` (debe ser invocable externamente con un search text como argumento).
+- Si `saldo === 0` el monto del saldo se muestra verde y desaparecen los botones.
 
 ## Data flow
 
@@ -155,29 +194,52 @@ Cuando `Historial.filters.puntoId` está seteado, renderizar arriba de `#hist-li
 Usuario abre /deudores
   └─► Deudores.render() devuelve shell + spinner
        └─► Deudores.loadData()
-            ├─► db.from('entregas').select('id, punto_entrega_id, fecha_hora, monto_total, puntos_entrega(nombre)')
+            ├─► db.from('entregas')
+            │     .select('id, punto_entrega_id, fecha_hora, monto_total,
+            │              puntos_entrega(nombre), entrega_lineas(cantidad, tipos_alfajor(nombre))')
             │     [if !admin] .eq('repartidor_id', user.id)
             ├─► batchIn('pagos', 'entrega_id, monto', 'entrega_id', entregaIds)
-            ├─► por entrega: pagado = sum(pagos[entrega_id]); saldo_entrega = monto_total - pagado
-            ├─► agrupa por punto_entrega_id sumando solo entregas con saldo_entrega > 0
+            ├─► Deudores._aggregate(entregas, pagos) →
+            │     { porPunto: [...], unpaidEntregas: [...] }
             ├─► descarta puntos con saldo total = 0
-            └─► Deudores._data = [...]; Deudores.renderList()
+            └─► Deudores._data = porPunto; _unpaidEntregas = unpaidEntregas
+                 └─► renderList()
 
 Usuario tipea en buscador
-  └─► onSearch() → renderList() (cliente-side, no fetch)
+  ├─► onSearch() → renderList() (cliente-side, no fetch)
+  └─► si filters.search no vacío y hay matches → muestra botón "Ver todas las facturas pendientes"
 
-Usuario clickea cliente
+Usuario clickea cliente (modo por-punto)
   └─► Pagos.showDeudorModal(puntoId, nombre)  [EXISTENTE]
-       └─► al confirmar pago: Pagos.confirmar()
-            └─► detecta App.currentRoute === '/deudores' → Deudores.loadData()
+
+Usuario clickea "Ver todas las facturas pendientes" (modo flat)
+  └─► Deudores.showFlatInvoicesModal(filters.search)
+       └─► filtra _unpaidEntregas por substring sobre nombre
+            └─► render lista plana, cada fila con Pagos.renderFormInline inline
+
+Tras confirmar pago (cualquier flujo)
+  └─► Pagos.confirmar/pagarTodo/deletePago detecta App.currentRoute === '/deudores'
+       └─► Deudores.loadData() refresh
 ```
 
 ```
-Usuario abre /historial, tipea cliente en combobox
+Usuario abre /historial
+
+Caso A — selecciona un punto del dropdown:
   └─► Puntos.renderFilterCombobox onSelect(puntoId)
-       └─► Historial.filters.puntoId = puntoId
-            └─► Historial.fetchEntregas() [EXISTENTE]
-                 └─► al renderizar: si filters.puntoId → renderClienteHeader(_data, puntoId)
+       └─► Historial.filters.puntoId = puntoId; puntoSearchText = ''
+            └─► Historial.fetchEntregas() con .eq('punto_entrega_id', puntoId)
+                 └─► render header de cliente "single-punto" con botón "Ver cuenta corriente"
+
+Caso B — tipea texto sin seleccionar (ej. "benedetti"):
+  └─► Puntos.renderFilterCombobox onTextChange(text)
+       └─► Historial.filters.puntoSearchText = text; puntoId = ''
+            └─► Historial._resolvePuntoIds(text, Puntos.cache) → matchingIds
+                 ├─► matchingIds vacío → empty state, sin query
+                 └─► matchingIds con N items → fetchEntregas() con .in('punto_entrega_id', matchingIds)
+                      └─► render header de cliente "multi-punto (N puntos)"
+                           con botón "Ver todas las facturas pendientes"
+                           → Deudores.showFlatInvoicesModal(text)
 ```
 
 ## Manejo de errores
@@ -208,10 +270,11 @@ Sigue exactamente el patrón existente en `tests/integration.test.js`: cargar ar
 Cargar `js/deudores.js` con `loadScript`. Tests:
 
 1. **`Deudores._aggregate`** — función pura
-   - Caso base: 1 entrega 1000, 1 pago 400 → 1 deudor con saldo 600, `entregasPendientes=1`.
-   - Múltiples entregas mismo punto, pagos parciales → suma correcta.
-   - Entregas sin `punto_entrega_id` (legacy con `punto_nombre_temp`) se descartan.
-   - Saldo exactamente 0 → no aparece en la salida.
+   - Caso base: 1 entrega 1000, 1 pago 400 → `porPunto` 1 deudor con saldo 600, `entregasPendientes=1`; `unpaidEntregas` con 1 elemento de saldo 600.
+   - Múltiples entregas mismo punto, pagos parciales → suma correcta en `porPunto`; lista plana en `unpaidEntregas` con cada entrega individual.
+   - **Múltiples puntos con nombres similares ("Benedetti Norte", "Benedetti Sur")** → `porPunto` con 2 entradas separadas; `unpaidEntregas` con todas las facturas mezcladas.
+   - Entregas sin `punto_entrega_id` (legacy con `punto_nombre_temp`) se descartan en `porPunto` y en `unpaidEntregas`.
+   - Saldo exactamente 0 → no aparece en `porPunto` ni en `unpaidEntregas`.
    - Sobrepago (pagos > monto_total) → saldo 0, descartado.
    - `primeraFechaPendiente` = la más vieja de las entregas con saldo > 0; `ultimaFechaPendiente` = la más reciente.
 2. **`Deudores._filter`** — función pura
@@ -231,6 +294,23 @@ Cargar `js/deudores.js` con `loadScript`. Tests:
    - Vacío → `empty-state` con texto "Sin deudas pendientes".
    - Vacío con search activo → mensaje "No hay deudores que coincidan".
    - Click handler tiene `Pagos.showDeudorModal('<id>', '<nombre>')` con `escJs` aplicado.
+   - **Con `filters.search` no vacío y resultados**: aparece el botón "Ver todas las facturas pendientes" con el contador correcto ("3 puntos · 12 facturas pendientes · $87.000"). Sin search activo, el botón NO aparece.
+6. **`Deudores.showFlatInvoicesModal('benedetti')`** — output HTML del modal
+   - Lista entregas de TODOS los puntos cuyo nombre matchea "benedetti".
+   - Orden por fecha asc (más vieja arriba).
+   - Cada fila tiene botón "Registrar pago" que llama a `Pagos.renderFormInline(<entregaId>, <saldo>)`.
+   - Sin matches → mensaje "Sin facturas pendientes para esta búsqueda".
+
+### Tests para `Historial` (regresión + multi-punto)
+
+- `Historial._resolvePuntoIds(text, puntosCache)` (función pura nueva extraída):
+  - `text='benedetti'`, cache con `[Benedetti Norte, Benedetti Sur, Don Pedro]` → devuelve los 2 ids de Benedetti.
+  - `text='xyz'` → devuelve `[]`.
+  - `text=''` → devuelve `null` (señal de "no filtrar").
+  - Case insensitive: `'BENEDETTI'` matchea igual.
+- `Historial._aggregateClientHeader(entregas)`:
+  - Calcula vendido / cobrado / saldo correctamente.
+  - Cuando las entregas son de múltiples puntos, agrega un campo `puntosCount` con el número de puntos distintos.
 
 ### Cambios a `tests/integration.test.js` (regresión)
 
@@ -239,9 +319,8 @@ Cargar `js/deudores.js` con `loadScript`. Tests:
    - Con `includeAll=true` el HTML contiene la opción "Todos los puntos".
    - Sin `includeAll` no aparece.
    - El callback `onSelect` se invoca con el `puntoId` correcto al disparar el click.
-3. Test de helper `Historial._aggregateClientHeader(entregas, puntoId)` (función pura nueva extraída para testabilidad):
-   - Calcula vendido / cobrado / saldo correctamente sobre las entregas filtradas por `punto_entrega_id`.
-   - Sin entregas del punto → totales en cero.
+   - El callback `onTextChange(text)` se dispara mientras se tipea en el input.
+3. **Smoke test del flujo de alta de entregas**: cargar `entregas.js`, llamar a `Entregas.renderForm()` con DOM mockeado, verificar que el HTML resultante contiene un `#ent-punto-search` (input del combobox de Puntos) — confirma que el refactor no rompió el flujo crítico.
 
 ### Mocks adicionales en `tests/setup.js` si hace falta
 
@@ -258,7 +337,7 @@ Cargar `js/deudores.js` con `loadScript`. Tests:
 npm test
 ```
 
-Esperado: los 71 tests existentes siguen pasando + ~15–20 nuevos tests para deudores y combobox.
+Esperado: los 71 tests existentes siguen pasando + ~22–28 nuevos tests para deudores (incluido modo flat-invoices y multi-punto), combobox con onTextChange, `Historial._resolvePuntoIds` y `_aggregateClientHeader`, y smoke test de alta de entregas.
 
 ## PWA / Service Worker
 
@@ -277,7 +356,11 @@ Esperado: los 71 tests existentes siguen pasando + ~15–20 nuevos tests para de
 
 1. Merge a master.
 2. SW v23 fuerza refresh de los clientes instalados al próximo abrir.
-3. Avisar a Emi que pruebe los tres flujos: nueva tab, buscador en historial, agrupación de Benedetti.
+3. Avisar a Emi que pruebe los flujos:
+   - Tab nueva "Deudores", ordenar por antigüedad (las más viejas arriba — ataca su queja principal).
+   - Tipear "Benedetti" en `/deudores` → ver el botón "Ver todas las facturas pendientes" → cargar pagos uno por uno desde el modal flat sin cerrarlo.
+   - En `/historial`, tipear "Benedetti" en el combobox sin seleccionar nada → la lista se filtra por TODOS los puntos Benedetti.
+   - Verificar que el header de cliente muestra "(N puntos)" cuando aplica.
 
 ## Riesgos y consideraciones
 
