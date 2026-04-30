@@ -1,5 +1,5 @@
 const Historial = {
-  filters: { periodo: 'semana', puntoId: '', repartidorId: '' },
+  filters: { periodo: 'semana', puntoId: '', puntoSearchText: '', repartidorId: '' },
 
   render() {
     Historial.loadData();
@@ -94,6 +94,17 @@ const Historial = {
 
     if (Historial.filters.puntoId) {
       query = query.eq('punto_entrega_id', Historial.filters.puntoId);
+    } else if (Historial.filters.puntoSearchText) {
+      const ids = Historial._resolvePuntoIds(Historial.filters.puntoSearchText, Puntos.cache);
+      if (ids && ids.length === 0) {
+        listEl.innerHTML = '<div class="empty-state"><p>Sin matches para esa búsqueda</p></div>';
+        Historial._data = [];
+        Historial._renderClientHeader && Historial._renderClientHeader();
+        return;
+      }
+      if (ids && ids.length > 0) {
+        query = query.in('punto_entrega_id', ids);
+      }
     }
 
     if (Auth.isAdmin() && Historial.filters.repartidorId) {
@@ -140,6 +151,12 @@ const Historial = {
     console.error('Historial error:', err);
     showToast('Error cargando historial');
    }
+  },
+
+  _resolvePuntoIds(text, cache) {
+    if (!text) return null;
+    const q = text.toLowerCase();
+    return (cache || []).filter(p => (p.nombre || '').toLowerCase().includes(q)).map(p => p.id);
   },
 
   _data: [],

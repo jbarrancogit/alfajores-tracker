@@ -270,3 +270,32 @@ describe('Puntos.renderFilterCombobox — new helper', () => {
     expect(html).not.toContain('Todos los puntos');
   });
 });
+
+loadScript('js/historial.js');
+
+describe('Historial._resolvePuntoIds — substring resolver', () => {
+  const cache = [
+    { id: 'p1', nombre: 'Don Pedro' },
+    { id: 'p2', nombre: 'Benedetti Norte' },
+    { id: 'p3', nombre: 'Benedetti Sur' }
+  ];
+
+  it('returns null for empty text (signals "no filter")', () => {
+    expect(Historial._resolvePuntoIds('', cache)).toBeNull();
+  });
+
+  it('returns matching ids for "benedetti"', () => {
+    const ids = Historial._resolvePuntoIds('benedetti', cache);
+    expect(ids).toHaveLength(2);
+    expect(ids.sort()).toEqual(['p2', 'p3']);
+  });
+
+  it('matches case-insensitive', () => {
+    const ids = Historial._resolvePuntoIds('BENEDETTI', cache);
+    expect(ids).toHaveLength(2);
+  });
+
+  it('returns empty array for no match', () => {
+    expect(Historial._resolvePuntoIds('xyz', cache)).toEqual([]);
+  });
+});
