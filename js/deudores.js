@@ -100,47 +100,47 @@ const Deudores = {
   },
 
   async loadData() {
-   try {
-    Deudores._fetchId++;
-    const myFetchId = Deudores._fetchId;
-    const isAdmin = Auth.isAdmin();
+    try {
+      Deudores._fetchId++;
+      const myFetchId = Deudores._fetchId;
+      const isAdmin = Auth.isAdmin();
 
-    let q = db.from('entregas')
-      .select('id, punto_entrega_id, fecha_hora, monto_total, repartidor_id, puntos_entrega(nombre), entrega_lineas(cantidad, tipos_alfajor(nombre))');
-    if (!isAdmin) {
-      q = q.eq('repartidor_id', Auth.currentUser.id);
-    } else if (Deudores.filters.repartidorId) {
-      q = q.eq('repartidor_id', Deudores.filters.repartidorId);
-    }
-    const { data: entregas } = await q;
-    if (myFetchId !== Deudores._fetchId) return;
-
-    const entregaIds = (entregas || []).map(e => e.id);
-    const pagos = await batchIn('pagos', 'entrega_id, monto', 'entrega_id', entregaIds);
-    if (myFetchId !== Deudores._fetchId) return;
-
-    const { porPunto, unpaidEntregas } = Deudores._aggregate(entregas || [], pagos || []);
-    Deudores._data = porPunto;
-    Deudores._unpaidEntregas = unpaidEntregas;
-
-    if (isAdmin) {
-      const { data: usuarios } = await db.from('usuarios').select('id, nombre').order('nombre');
-      const sel = document.getElementById('deud-repartidor');
-      if (sel && usuarios) {
-        const opts = usuarios.map(u =>
-          `<option value="${u.id}" ${u.id === Deudores.filters.repartidorId ? 'selected' : ''}>${esc(u.nombre)}</option>`
-        ).join('');
-        sel.innerHTML = `<option value="">Todos los repartidores</option>${opts}`;
+      let q = db.from('entregas')
+        .select('id, punto_entrega_id, fecha_hora, monto_total, repartidor_id, puntos_entrega(nombre), entrega_lineas(cantidad, tipos_alfajor(nombre))');
+      if (!isAdmin) {
+        q = q.eq('repartidor_id', Auth.currentUser.id);
+      } else if (Deudores.filters.repartidorId) {
+        q = q.eq('repartidor_id', Deudores.filters.repartidorId);
       }
-    }
+      const { data: entregas } = await q;
+      if (myFetchId !== Deudores._fetchId) return;
 
-    Deudores.renderList();
-   } catch (err) {
-    console.error('Deudores.loadData error:', err);
-    showToast('Error: ' + friendlyError(err));
-    const list = document.getElementById('deud-list');
-    if (list) list.innerHTML = '<p class="text-sm text-red">Error al cargar deudores</p>';
-   }
+      const entregaIds = (entregas || []).map(e => e.id);
+      const pagos = await batchIn('pagos', 'entrega_id, monto', 'entrega_id', entregaIds);
+      if (myFetchId !== Deudores._fetchId) return;
+
+      const { porPunto, unpaidEntregas } = Deudores._aggregate(entregas || [], pagos || []);
+      Deudores._data = porPunto;
+      Deudores._unpaidEntregas = unpaidEntregas;
+
+      if (isAdmin) {
+        const { data: usuarios } = await db.from('usuarios').select('id, nombre').order('nombre');
+        const sel = document.getElementById('deud-repartidor');
+        if (sel && usuarios) {
+          const opts = usuarios.map(u =>
+            `<option value="${u.id}" ${u.id === Deudores.filters.repartidorId ? 'selected' : ''}>${esc(u.nombre)}</option>`
+          ).join('');
+          sel.innerHTML = `<option value="">Todos los repartidores</option>${opts}`;
+        }
+      }
+
+      Deudores.renderList();
+    } catch (err) {
+      console.error('Deudores.loadData error:', err);
+      showToast('Error: ' + friendlyError(err));
+      const list = document.getElementById('deud-list');
+      if (list) list.innerHTML = '<p class="text-sm text-red">Error al cargar deudores</p>';
+    }
   },
 
   setOrden(chip, orden) {

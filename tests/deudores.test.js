@@ -161,6 +161,10 @@ describe('Deudores._sort — pure sort function', () => {
 });
 
 describe('Deudores.render — HTML output', () => {
+  beforeEach(() => {
+    vi.spyOn(Deudores, 'loadData').mockResolvedValue(undefined);
+  });
+
   it('returns HTML containing app-header with Deudores title', () => {
     const html = Deudores.render();
     expect(html).toContain('app-header');
