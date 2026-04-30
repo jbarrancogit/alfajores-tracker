@@ -59,6 +59,18 @@ const Deudores = {
     return data.filter(d => (d.nombre || '').toLowerCase().includes(q));
   },
 
+  _sort(data, orden) {
+    const arr = [...data];
+    if (orden === 'saldo') {
+      arr.sort((a, b) => b.saldo - a.saldo);
+    } else if (orden === 'antiguedad') {
+      arr.sort((a, b) => (a.primeraFechaPendiente || '').localeCompare(b.primeraFechaPendiente || ''));
+    } else if (orden === 'alfabetico') {
+      arr.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'));
+    }
+    return arr;
+  },
+
   render() {
     return `
       <div class="app-header">

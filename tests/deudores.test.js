@@ -131,3 +131,31 @@ describe('Deudores._filter — pure substring filter', () => {
     expect(Deudores._filter(accented, 'López')).toHaveLength(1);
   });
 });
+
+describe('Deudores._sort — pure sort function', () => {
+  const data = [
+    { nombre: 'Don Pedro', saldo: 500, primeraFechaPendiente: '2026-04-15T10:00:00Z' },
+    { nombre: 'Benedetti', saldo: 2000, primeraFechaPendiente: '2026-04-01T10:00:00Z' },
+    { nombre: 'Álvarez', saldo: 800, primeraFechaPendiente: '2026-04-20T10:00:00Z' }
+  ];
+
+  it('sorts by saldo desc', () => {
+    const sorted = Deudores._sort([...data], 'saldo');
+    expect(sorted.map(d => d.nombre)).toEqual(['Benedetti', 'Álvarez', 'Don Pedro']);
+  });
+
+  it('sorts by antiguedad asc (oldest first)', () => {
+    const sorted = Deudores._sort([...data], 'antiguedad');
+    expect(sorted.map(d => d.nombre)).toEqual(['Benedetti', 'Don Pedro', 'Álvarez']);
+  });
+
+  it('sorts alphabetically with Spanish locale (Á before B)', () => {
+    const sorted = Deudores._sort([...data], 'alfabetico');
+    expect(sorted.map(d => d.nombre)).toEqual(['Álvarez', 'Benedetti', 'Don Pedro']);
+  });
+
+  it('returns input unchanged on unknown orden', () => {
+    const sorted = Deudores._sort([...data], 'unknown');
+    expect(sorted).toHaveLength(3);
+  });
+});
