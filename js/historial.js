@@ -14,9 +14,12 @@ const Historial = {
         <button class="filter-chip" onclick="Historial.setPeriod(this, 'todo')">Todo</button>
       </div>
       <div id="hist-filters" class="mb-8" style="display:grid;grid-template-columns:1fr ${Auth.isAdmin() ? '1fr' : ''};gap:8px">
-        <select class="form-select" id="hist-punto" onchange="Historial.onFilterChange()" style="min-height:40px;font-size:0.85rem">
-          <option value="">Todos los puntos</option>
-        </select>
+        ${Puntos.renderFilterCombobox({
+          inputId: 'hist-punto-search',
+          hiddenId: 'hist-punto-id',
+          dropdownId: 'hist-punto-dropdown',
+          includeAll: true
+        })}
         ${Auth.isAdmin() ? `
         <select class="form-select" id="hist-repartidor" onchange="Historial.onFilterChange()" style="min-height:40px;font-size:0.85rem">
           <option value="">Todos</option>
@@ -30,10 +33,20 @@ const Historial = {
 
   async loadData() {
     await Puntos.fetchAll();
-    const puntoSel = document.getElementById('hist-punto');
-    if (puntoSel) {
-      const opts = Puntos.cache.map(p => `<option value="${p.id}">${esc(p.nombre)}</option>`).join('');
-      puntoSel.innerHTML = '<option value="">Todos los puntos</option>' + opts;
+    // Wire combobox events to Historial.filters
+    const searchInput = document.getElementById('hist-punto-search');
+    if (searchInput && !searchInput.dataset.wired) {
+      searchInput.dataset.wired = '1';
+      searchInput.addEventListener('punto-select', (ev) => {
+        Historial.filters.puntoId = ev.detail.puntoId || '';
+        Historial.filters.puntoSearchText = '';
+        Historial.fetchEntregas();
+      });
+      searchInput.addEventListener('punto-text-change', (ev) => {
+        Historial.filters.puntoSearchText = ev.detail.text || '';
+        Historial.filters.puntoId = '';
+        Historial.fetchEntregas();
+      });
     }
 
     if (Auth.isAdmin()) {
@@ -63,7 +76,6 @@ const Historial = {
   },
 
   onFilterChange() {
-    Historial.filters.puntoId = document.getElementById('hist-punto')?.value || '';
     const repEl = document.getElementById('hist-repartidor');
     Historial.filters.repartidorId = repEl ? repEl.value : '';
     Historial.fetchEntregas();
