@@ -1,0 +1,83 @@
+# =====================================================
+# REPO PUBLICO - Cuidar que NO se filtre data de cliente
+# =====================================================
+
+# dependencies
+node_modules/
+.pnpm-store/
+package-lock.json.backup
+
+# env / secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+credentials/
+
+# entregables al cliente (contratos, codigo zipeado, manuales firmados)
+entrega-cliente/
+entregas/
+*entrega*.zip
+
+# contratos y documentos legales
+docs/contrato*
+docs/*.docx
+docs/*.pdf
+!docs/manual-de-uso.pdf
+contrato*
+
+# scripts generadores (pueden tener data hardcodeada del cliente)
+docs/generar_*.py
+generar_*.py
+
+# audios / capturas de WhatsApp con clientes
+*audioos*/
+*whatsapp*/
+*WhatsApp*/
+*.ogg
+*.opus
+*.m4a
+
+# worktrees locales
+.worktrees/
+
+# Claude Code estado local
+.claude/
+.blackboxcli/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# build / cache
+build/
+dist/
+.cache/
+coverage/
+
+# Python (scripts auxiliares)
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# backups locales de DB
+*.sqlite
+*.sqlite3
+*.db
+backup-*.sql
+dump-*.sql
