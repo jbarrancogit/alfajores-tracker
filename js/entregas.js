@@ -392,6 +392,13 @@ const Entregas = {
         puntoId = punto.id;
       }
 
+      if (!puntoId) {
+        showToast('Selecciona o crea un punto de entrega');
+        btn.disabled = false;
+        btn.textContent = editId ? 'Actualizar' : 'Guardar entrega';
+        return;
+      }
+
       const lines = Entregas._collectLines();
       if (lines.length === 0) {
         showToast('Ingresa al menos un tipo de alfajor');
