@@ -75,7 +75,7 @@ function showToast(msg) {
   toast.textContent = msg;
   toast.classList.toggle('toast-error', /error|sin conexi/i.test(msg));
   toast.classList.add('visible');
-  setTimeout(() => { toast.classList.remove('visible'); toast.classList.remove('toast-error'); }, 2500);
+  setTimeout(() => { toast.classList.remove('visible'); toast.classList.remove('toast-error'); }, 1800);
 }
 
 /** Create a Supabase client with a portal token header for client access */

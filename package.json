@@ -1,0 +1,29 @@
+{
+  "name": "alfajores-tracker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "sw.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jbarrancogit/alfajores-tracker.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/jbarrancogit/alfajores-tracker/issues"
+  },
+  "homepage": "https://github.com/jbarrancogit/alfajores-tracker#readme",
+  "devDependencies": {
+    "jsdom": "^29.0.2",
+    "vitest": "^4.1.3"
+  }
+}

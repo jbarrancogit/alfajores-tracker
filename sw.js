@@ -1,4 +1,4 @@
-const CACHE_NAME = 'alfajores-v22';
+const CACHE_NAME = 'alfajores-v26';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ const STATIC_ASSETS = [
   './js/entregas.js',
   './js/dashboard.js',
   './js/historial.js',
+  './js/deudores.js',
   './js/analisis.js',
   './js/excel.js',
   './js/config.js',

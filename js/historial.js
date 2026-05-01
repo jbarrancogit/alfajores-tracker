@@ -1,5 +1,5 @@
 const Historial = {
-  filters: { periodo: 'semana', puntoId: '', repartidorId: '' },
+  filters: { periodo: 'semana', puntoId: '', puntoSearchText: '', repartidorId: '' },
 
   render() {
     Historial.loadData();
@@ -14,25 +14,39 @@ const Historial = {
         <button class="filter-chip" onclick="Historial.setPeriod(this, 'todo')">Todo</button>
       </div>
       <div id="hist-filters" class="mb-8" style="display:grid;grid-template-columns:1fr ${Auth.isAdmin() ? '1fr' : ''};gap:8px">
-        <select class="form-select" id="hist-punto" onchange="Historial.onFilterChange()" style="min-height:40px;font-size:0.85rem">
-          <option value="">Todos los puntos</option>
-        </select>
+        ${Puntos.renderFilterCombobox({
+          inputId: 'hist-punto-search',
+          hiddenId: 'hist-punto-id',
+          dropdownId: 'hist-punto-dropdown',
+          includeAll: true
+        })}
         ${Auth.isAdmin() ? `
         <select class="form-select" id="hist-repartidor" onchange="Historial.onFilterChange()" style="min-height:40px;font-size:0.85rem">
           <option value="">Todos</option>
         </select>
         ` : ''}
       </div>
+      <div id="hist-client-header"></div>
       <div id="hist-list"><div class="spinner mt-8"></div></div>
     `;
   },
 
   async loadData() {
     await Puntos.fetchAll();
-    const puntoSel = document.getElementById('hist-punto');
-    if (puntoSel) {
-      const opts = Puntos.cache.map(p => `<option value="${p.id}">${esc(p.nombre)}</option>`).join('');
-      puntoSel.innerHTML = '<option value="">Todos los puntos</option>' + opts;
+    // Wire combobox events to Historial.filters
+    const searchInput = document.getElementById('hist-punto-search');
+    if (searchInput && !searchInput.dataset.wired) {
+      searchInput.dataset.wired = '1';
+      searchInput.addEventListener('punto-select', (ev) => {
+        Historial.filters.puntoId = ev.detail.puntoId || '';
+        Historial.filters.puntoSearchText = '';
+        Historial.fetchEntregas();
+      });
+      searchInput.addEventListener('punto-text-change', (ev) => {
+        Historial.filters.puntoSearchText = ev.detail.text || '';
+        Historial.filters.puntoId = '';
+        Historial.fetchEntregas();
+      });
     }
 
     if (Auth.isAdmin()) {
@@ -62,7 +76,6 @@ const Historial = {
   },
 
   onFilterChange() {
-    Historial.filters.puntoId = document.getElementById('hist-punto')?.value || '';
     const repEl = document.getElementById('hist-repartidor');
     Historial.filters.repartidorId = repEl ? repEl.value : '';
     Historial.fetchEntregas();
@@ -94,6 +107,17 @@ const Historial = {
 
     if (Historial.filters.puntoId) {
       query = query.eq('punto_entrega_id', Historial.filters.puntoId);
+    } else if (Historial.filters.puntoSearchText) {
+      const ids = Historial._resolvePuntoIds(Historial.filters.puntoSearchText, Puntos.cache);
+      if (ids && ids.length === 0) {
+        listEl.innerHTML = '<div class="empty-state"><p>Sin matches para esa búsqueda</p></div>';
+        Historial._data = [];
+        Historial._renderClientHeader && Historial._renderClientHeader();
+        return;
+      }
+      if (ids && ids.length > 0) {
+        query = query.in('punto_entrega_id', ids);
+      }
     }
 
     if (Auth.isAdmin() && Historial.filters.repartidorId) {
@@ -108,6 +132,8 @@ const Historial = {
 
     if (!data || data.length === 0) {
       listEl.innerHTML = '<div class="empty-state"><p>Sin entregas en este período</p></div>';
+      Historial._data = [];
+      Historial._renderClientHeader();
       return;
     }
 
@@ -136,10 +162,17 @@ const Historial = {
     }
 
     Historial._data = data;
+    Historial._renderClientHeader();
    } catch (err) {
     console.error('Historial error:', err);
     showToast('Error cargando historial');
    }
+  },
+
+  _resolvePuntoIds(text, cache) {
+    if (!text) return null;
+    const q = text.toLowerCase();
+    return (cache || []).filter(p => (p.nombre || '').toLowerCase().includes(q)).map(p => p.id);
   },
 
   _data: [],
@@ -237,5 +270,51 @@ const Historial = {
     console.error('Historial detail error:', err);
     showToast('Error cargando detalle');
    }
+  },
+
+  _aggregateClientHeader(entregas) {
+    const puntos = new Set();
+    let vendido = 0, cobrado = 0;
+    (entregas || []).forEach(e => {
+      vendido += Number(e.monto_total) || 0;
+      cobrado += Number(e.monto_pagado) || 0;
+      if (e.punto_entrega_id) puntos.add(e.punto_entrega_id);
+    });
+    return { vendido, cobrado, saldo: vendido - cobrado, puntosCount: puntos.size };
+  },
+
+  _renderClientHeader() {
+    const headerEl = document.getElementById('hist-client-header');
+    if (!headerEl) return;
+
+    const hasFilter = Historial.filters.puntoId || Historial.filters.puntoSearchText;
+    if (!hasFilter || !Historial._data || Historial._data.length === 0) {
+      headerEl.innerHTML = '';
+      return;
+    }
+
+    const agg = Historial._aggregateClientHeader(Historial._data);
+    let title;
+    if (Historial.filters.puntoId) {
+      const p = Puntos.cache.find(x => x.id === Historial.filters.puntoId);
+      title = p ? esc(p.nombre) : 'Cliente';
+    } else {
+      title = `"${esc(Historial.filters.puntoSearchText)}"`;
+      if (agg.puntosCount > 1) title += ` <span class="text-sm text-muted">(${agg.puntosCount} puntos)</span>`;
+    }
+
+    const saldoColor = agg.saldo > 0 ? 'text-red' : 'text-green';
+    const action = Historial.filters.puntoId
+      ? (agg.saldo > 0 ? `<button class="btn btn-secondary btn-block mt-8" onclick="Pagos.showDeudorModal('${Historial.filters.puntoId}', '${escJs(title)}')">Ver cuenta corriente</button>` : '')
+      : (agg.saldo > 0 ? `<button class="btn btn-secondary btn-block mt-8" onclick="Deudores.showFlatInvoicesModal('${escJs(Historial.filters.puntoSearchText)}')">Ver todas las facturas pendientes</button>` : '');
+
+    headerEl.innerHTML = `
+      <div class="metric-card" style="margin-bottom:8px">
+        <div class="metric-label">${title}</div>
+        <div class="text-sm">Vendido: ${fmtMoney(agg.vendido)} · Cobrado: ${fmtMoney(agg.cobrado)}</div>
+        <div class="metric-value ${saldoColor}">Saldo: ${fmtMoney(agg.saldo)}</div>
+        ${action}
+      </div>
+    `;
   }
 };
