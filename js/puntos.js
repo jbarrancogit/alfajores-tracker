@@ -109,10 +109,16 @@ const Puntos = {
     const dropdown = document.getElementById('punto-dropdown');
 
     if (id === '__nuevo__') {
+      const typed = searchInput.value.trim();
       hiddenInput.value = '__nuevo__';
       searchInput.value = '';
       dropdown?.classList.add('hidden');
       document.getElementById('nuevo-punto-fields')?.classList.remove('hidden');
+      const nombreInput = document.getElementById('ent-punto-nombre');
+      if (nombreInput && typed) {
+        nombreInput.value = typed;
+        nombreInput.focus();
+      }
       document.removeEventListener('click', Puntos._closeHandler);
       return;
     }
