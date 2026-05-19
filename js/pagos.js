@@ -1,23 +1,36 @@
 const Pagos = {
+  // In-memory lock: blocks concurrent pago inserts for the same entrega.
+  // Prevents TOCTOU race between SELECT (check overpayment) and INSERT
+  // that allowed double-tap submissions to both pass validation.
+  _inflight: new Set(),
+
   /** Register a payment for an entrega */
   async registrar(entregaId, monto, formaPago) {
-    // Validate entrega exists and check remaining debt
-    const { data: entrega } = await db.from('entregas')
-      .select('id, monto_total, monto_pagado')
-      .eq('id', entregaId)
-      .single();
-    if (!entrega) throw new Error('Entrega no encontrada');
-    const maxPago = Number(entrega.monto_total) - Number(entrega.monto_pagado);
-    if (monto > maxPago + 0.01) throw new Error('El monto excede la deuda restante');
+    if (Pagos._inflight.has(entregaId)) {
+      throw new Error('Pago en curso para esta entrega, esperá un instante');
+    }
+    Pagos._inflight.add(entregaId);
+    try {
+      // Validate entrega exists and check remaining debt
+      const { data: entrega } = await db.from('entregas')
+        .select('id, monto_total, monto_pagado')
+        .eq('id', entregaId)
+        .single();
+      if (!entrega) throw new Error('Entrega no encontrada');
+      const maxPago = Number(entrega.monto_total) - Number(entrega.monto_pagado);
+      if (monto > maxPago + 0.01) throw new Error('El monto excede la deuda restante');
 
-    const { error: pagoErr } = await db.from('pagos').insert({
-      entrega_id: entregaId,
-      monto: monto,
-      forma_pago: formaPago,
-      registrado_por: Auth.currentUser.id
-    });
-    if (pagoErr) throw pagoErr;
-    // DB trigger (trg_sync_pago_upsert) auto-syncs entregas.monto_pagado & forma_pago
+      const { error: pagoErr } = await db.from('pagos').insert({
+        entrega_id: entregaId,
+        monto: monto,
+        forma_pago: formaPago,
+        registrado_por: Auth.currentUser.id
+      });
+      if (pagoErr) throw pagoErr;
+      // DB trigger (trg_sync_pago_upsert) auto-syncs entregas.monto_pagado & forma_pago
+    } finally {
+      Pagos._inflight.delete(entregaId);
+    }
   },
 
   /** Fetch payment history for an entrega */
@@ -65,30 +78,34 @@ const Pagos = {
   },
 
   async confirmar(entregaId) {
+    // Disable button BEFORE any await so a fast second tap can't queue a second submit
+    const btn = document.querySelector('#pago-form-' + entregaId + ' .btn-primary');
+    if (btn) btn.disabled = true;
+
     const monto = parseFloat(document.getElementById('pago-monto-' + entregaId).value);
     const forma = document.getElementById('pago-forma-' + entregaId).value;
 
     if (!monto || monto <= 0) {
       showToast('Ingresá un monto válido');
+      if (btn) btn.disabled = false;
       return;
     }
 
-    // Prevent overpayment
-    const { data: entregaCheck } = await db.from('entregas')
-      .select('monto_total, monto_pagado')
-      .eq('id', entregaId)
-      .single();
-    if (entregaCheck) {
-      const maxPago = Number(entregaCheck.monto_total) - Number(entregaCheck.monto_pagado);
-      if (monto > maxPago) {
-        showToast(`Monto máximo: ${fmtMoney(maxPago)}`);
-        return;
-      }
-    }
-
-    const btn = document.querySelector('#pago-form-' + entregaId + ' .btn-primary');
-    if (btn) btn.disabled = true;
     try {
+      // Prevent overpayment
+      const { data: entregaCheck } = await db.from('entregas')
+        .select('monto_total, monto_pagado')
+        .eq('id', entregaId)
+        .single();
+      if (entregaCheck) {
+        const maxPago = Number(entregaCheck.monto_total) - Number(entregaCheck.monto_pagado);
+        if (monto > maxPago) {
+          showToast(`Monto máximo: ${fmtMoney(maxPago)}`);
+          if (btn) btn.disabled = false;
+          return;
+        }
+      }
+
       await Pagos.registrar(entregaId, monto, forma);
       showToast('Pago registrado');
       // Close any modal and refresh the current view
