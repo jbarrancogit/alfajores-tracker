@@ -112,6 +112,30 @@ describe('Tipos module — loaded from actual file', () => {
   });
 });
 
+// ─── Entrega form initial cost ────────────────────────────
+
+describe('Tipos.getCostoInicial — configured cost wins over device cache', () => {
+  beforeEach(() => localStorage.clear());
+
+  // Admin raises Maicena from 3000 to 3200 in Configuración, but the phone
+  // already stored 3000 from earlier entregas. The configured value must win,
+  // otherwise the entrega is recorded with a stale cost and inflates profit.
+  it('costo_default wins over lastCosto stored on the device', () => {
+    Tipos.saveLast('maicena', 5000, 3000);
+    const tipo = { id: 'maicena', nombre: 'Maicena', costo_default: 3200 };
+    expect(Tipos.getCostoInicial(tipo)).toBe(3200);
+  });
+
+  it('falls back to lastCosto when the type has no configured cost', () => {
+    Tipos.saveLast('otro', 100, 80);
+    expect(Tipos.getCostoInicial({ id: 'otro', costo_default: 0 })).toBe(80);
+  });
+
+  it('returns empty when there is neither a configured nor a stored cost', () => {
+    expect(Tipos.getCostoInicial({ id: 'unknown-xyz', costo_default: 0 })).toBe('');
+  });
+});
+
 // ─── Pagos module ─────────────────────────────────────────
 
 describe('Pagos module — loaded from actual file', () => {

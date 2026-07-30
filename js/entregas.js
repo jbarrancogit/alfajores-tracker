@@ -105,7 +105,7 @@ const Entregas = {
               const draftLine = draft?.lines?.[t.id];
               const cant = linea ? linea.cantidad : (draftLine?.cant || '');
               const precio = linea ? linea.precio_unitario : (draftLine?.precio || Tipos.getLastPrecio(t.id));
-              const costo = linea ? linea.costo_unitario : (draftLine?.costo || Tipos.getLastCosto(t.id) || t.costo_default || '');
+              const costo = linea ? linea.costo_unitario : (draftLine?.costo || Tipos.getCostoInicial(t));
               return `
                 <div class="type-line" data-tipo-id="${t.id}">
                   <div class="type-line-name">

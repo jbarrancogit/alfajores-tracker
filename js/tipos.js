@@ -30,6 +30,17 @@ const Tipos = {
     return parseFloat(localStorage.getItem('lastCosto_' + tipoId)) || '';
   },
 
+  /**
+   * Cost to prefill in the entrega form for a type.
+   * The cost configured by the admin (costo_default) wins over the per-device
+   * lastCosto, so a change in Configuración reaches every phone. The stored
+   * value is only a fallback for types with no configured cost.
+   */
+  getCostoInicial(tipo) {
+    if (!tipo) return '';
+    return parseFloat(tipo.costo_default) || Tipos.getLastCosto(tipo.id) || '';
+  },
+
   /** Save last used price/cost for a type */
   saveLast(tipoId, precio, costo) {
     if (precio) localStorage.setItem('lastPrecio_' + tipoId, precio);
