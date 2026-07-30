@@ -391,10 +391,22 @@ h3 { font-size: 1.1rem; font-weight: 600; }
   color: var(--text-primary);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   z-index: 1000;
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  /* translateY(100px) is not enough to clear bottom + own height, so the
+     hidden toast stayed painted over the nav (z-index 1000 vs 800). Fade it
+     out and pull it from the render tree instead of relying on the offset. */
+  opacity: 0;
+  visibility: hidden;
+  transition: transform var(--transition), opacity var(--transition),
+              visibility 0s linear 0.3s;
   pointer-events: none;
 }
-.toast.visible { transform: translateX(-50%) translateY(0); }
+.toast.visible {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+  visibility: visible;
+  transition: transform var(--transition), opacity var(--transition),
+              visibility 0s;
+}
 .toast.toast-error { background: var(--red); color: #fff; }
 
 /* ── Modal ── */

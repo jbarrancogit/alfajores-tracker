@@ -69,6 +69,29 @@ describe('Supabase utilities — loaded from actual file', () => {
   });
 });
 
+// ─── Toast hidden state ───────────────────────────────────
+
+describe('Toast hidden state actually leaves the screen', () => {
+  const css = readFileSync(resolve(ROOT, 'css/styles.css'), 'utf-8');
+  const ruleFor = (selector) =>
+    (css.match(new RegExp(selector.replace(/\./g, '\\.') + '\\s*\\{[^}]*\\}')) || [''])[0];
+
+  // The toast sits at bottom: nav-height + 16px and is ~46px tall, so hiding it
+  // with translateY(100px) left it painted over the nav (z-index 1000 vs 800)
+  // and the last message stayed on screen for good.
+  it('hidden .toast is transparent and not rendered', () => {
+    const rule = ruleFor('.toast');
+    expect(rule).toMatch(/opacity:\s*0/);
+    expect(rule).toMatch(/visibility:\s*hidden/);
+  });
+
+  it('.toast.visible brings it back', () => {
+    const rule = ruleFor('.toast.visible');
+    expect(rule).toMatch(/opacity:\s*1/);
+    expect(rule).toMatch(/visibility:\s*visible/);
+  });
+});
+
 // ─── Tipos module ─────────────────────────────────────────
 
 describe('Tipos module — loaded from actual file', () => {
