@@ -29,13 +29,12 @@ const Portal = {
 
     const punto = puntos[0];
 
-    const { data: entregas } = await Portal.portalDb
-      .from('entregas')
-      .select('*, entrega_lineas(cantidad, precio_unitario, tipos_alfajor(nombre)), pagos(monto, forma_pago, fecha)')
-      .eq('punto_entrega_id', punto.id)
-      .order('fecha_hora', { ascending: false });
-
-    const list = entregas || [];
+    const list = await selectAll(
+      'entregas',
+      '*, entrega_lineas(cantidad, precio_unitario, tipos_alfajor(nombre)), pagos(monto, forma_pago, fecha)',
+      q => q.eq('punto_entrega_id', punto.id).order('fecha_hora', { ascending: false }),
+      { client: Portal.portalDb, label: 'portal.entregas' }
+    );
     const totalComprado = list.reduce((s, e) => s + Number(e.monto_total), 0);
     const totalPagado = list.reduce((s, e) => s + Number(e.monto_pagado), 0);
     const deuda = totalComprado - totalPagado;

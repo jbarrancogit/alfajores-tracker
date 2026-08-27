@@ -16,7 +16,7 @@ const Config = {
 
   async loadData() {
     await Promise.all([Tipos.fetchAll(), Puntos.fetchAll()]);
-    const { data: usuarios } = await db.from('usuarios').select('*').order('nombre');
+    const usuarios = await selectAll('usuarios', '*', q => q.order('nombre'));
 
     const contentEl = document.getElementById('config-content');
     if (!contentEl) return;

@@ -50,7 +50,7 @@ const Historial = {
     }
 
     if (Auth.isAdmin()) {
-      const { data: usuarios } = await db.from('usuarios').select('id, nombre');
+      const usuarios = await selectAll('usuarios', 'id, nombre');
       const repSel = document.getElementById('hist-repartidor');
       if (repSel && usuarios) {
         const opts = usuarios.map(u => `<option value="${u.id}">${esc(u.nombre)}</option>`).join('');

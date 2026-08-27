@@ -35,12 +35,13 @@ const Pagos = {
 
   /** Fetch payment history for an entrega */
   async historial(entregaId) {
-    const { data, error } = await db.from('pagos')
-      .select('*, usuarios(nombre)')
-      .eq('entrega_id', entregaId)
-      .order('fecha', { ascending: false });
-    if (error) console.error('Error cargando pagos:', error);
-    return data || [];
+    try {
+      return await selectAll('pagos', '*, usuarios(nombre)',
+        q => q.eq('entrega_id', entregaId).order('fecha', { ascending: false }));
+    } catch (err) {
+      console.error('Error cargando pagos:', err);
+      return [];
+    }
   },
 
   /** Render the payment registration form (inline HTML) */
@@ -155,12 +156,13 @@ const Pagos = {
 
   /** Show debtor modal with all unpaid entregas for a punto */
   async showDeudorModal(puntoId, puntoNombre) {
-    const { data } = await db.from('entregas')
-      .select('*, entrega_lineas(*, tipos_alfajor(nombre))')
-      .eq('punto_entrega_id', puntoId)
-      .order('fecha_hora', { ascending: false });
+    const entregasDelPunto = await selectAll(
+      'entregas', '*, entrega_lineas(*, tipos_alfajor(nombre))',
+      q => q.eq('punto_entrega_id', puntoId).order('fecha_hora', { ascending: false }),
+      { label: 'pagos.deudorModal' }
+    );
 
-    const impagas = (data || []).filter(e => Number(e.monto_pagado) < Number(e.monto_total));
+    const impagas = entregasDelPunto.filter(e => Number(e.monto_pagado) < Number(e.monto_total));
 
     if (impagas.length === 0) {
       showToast('Sin deudas pendientes');
@@ -275,11 +277,13 @@ const Pagos = {
     let exitosos = 0;
 
     try {
-      const { data } = await db.from('entregas')
-        .select('id, monto_total, monto_pagado')
-        .eq('punto_entrega_id', puntoId);
+      const entregasDelPunto = await selectAll(
+        'entregas', 'id, monto_total, monto_pagado',
+        q => q.eq('punto_entrega_id', puntoId),
+        { label: 'pagos.pagarTodo' }
+      );
 
-      const impagas = (data || []).filter(e => Number(e.monto_pagado) < Number(e.monto_total));
+      const impagas = entregasDelPunto.filter(e => Number(e.monto_pagado) < Number(e.monto_total));
 
       for (const e of impagas) {
         const deuda = Number(e.monto_total) - Number(e.monto_pagado);

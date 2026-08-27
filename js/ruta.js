@@ -22,12 +22,16 @@ const Ruta = {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    let query = db.from('entregas')
-      .select('*, puntos_entrega(id, nombre, lat, lng), entrega_lineas(cantidad, tipos_alfajor(nombre))')
-      .gte('fecha_hora', today.toISOString());
-    if (!isAdmin) query = query.eq('repartidor_id', Auth.currentUser.id);
-    const { data } = await query;
-    const entregas = data || [];
+    const entregas = await selectAll(
+      'entregas',
+      '*, puntos_entrega(id, nombre, lat, lng), entrega_lineas(cantidad, tipos_alfajor(nombre))',
+      q => {
+        q = q.gte('fecha_hora', today.toISOString());
+        if (!isAdmin) q = q.eq('repartidor_id', Auth.currentUser.id);
+        return q;
+      },
+      { label: 'ruta.hoy' }
+    );
 
     const mapEl = document.getElementById('ruta-map');
     if (!mapEl) return;

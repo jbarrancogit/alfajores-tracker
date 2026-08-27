@@ -8,16 +8,10 @@ const Entregas = {
     Promise.all([Puntos.fetchAll(), Tipos.fetchAll()]).then(async () => {
       let existingLineas = [];
       if (isEdit) {
-        const { data } = await db.from('entrega_lineas')
-          .select('*')
-          .eq('entrega_id', e.id);
-        existingLineas = data || [];
+        existingLineas = await selectAll('entrega_lineas', '*', q => q.eq('entrega_id', e.id));
 
         // Fetch existing pagos to pre-populate payment fields
-        const { data: pagosData } = await db.from('pagos')
-          .select('monto, forma_pago')
-          .eq('entrega_id', e.id);
-        const existingPagos = pagosData || [];
+        const existingPagos = await selectAll('pagos', 'monto, forma_pago', q => q.eq('entrega_id', e.id));
         e._pagoEfectivo = existingPagos.filter(p => p.forma_pago === 'efectivo').reduce((s, p) => s + Number(p.monto), 0) || '';
         e._pagoTransfer = existingPagos.filter(p => p.forma_pago === 'transferencia').reduce((s, p) => s + Number(p.monto), 0) || '';
         e._pagoMauri = existingPagos.filter(p => p.forma_pago === 'transferencia_mauri').reduce((s, p) => s + Number(p.monto), 0) || '';
@@ -45,7 +39,7 @@ const Entregas = {
       // Admin can assign to another repartidor
       let vendedorSelector = '';
       if (Auth.isAdmin()) {
-        const { data: usuarios } = await db.from('usuarios').select('id, nombre');
+        const usuarios = await selectAll('usuarios', 'id, nombre');
         const selId = draft?.vendedorId || e.repartidor_id || Auth.currentUser.id;
         const opts = (usuarios || []).map(u =>
           `<option value="${u.id}" ${u.id === selId ? 'selected' : ''}>${esc(u.nombre)}</option>`

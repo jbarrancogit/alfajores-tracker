@@ -27,6 +27,7 @@ entregas/
 docs/contrato*
 docs/*.docx
 docs/*.pdf
+docs/*.xlsx
 !docs/manual-de-uso.pdf
 contrato*
 

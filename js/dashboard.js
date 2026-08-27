@@ -36,11 +36,11 @@ const Dashboard = {
     today.setHours(0, 0, 0, 0);
     const isAdmin = Auth.isAdmin();
 
-    let query = db.from('entregas').select('*').gte('fecha_hora', today.toISOString());
-    if (!isAdmin) query = query.eq('repartidor_id', Auth.currentUser.id);
-    const { data: todayEntregas } = await query;
-
-    const entregas = todayEntregas || [];
+    const entregas = await selectAll('entregas', '*', q => {
+      q = q.gte('fecha_hora', today.toISOString());
+      if (!isAdmin) q = q.eq('repartidor_id', Auth.currentUser.id);
+      return q;
+    }, { label: 'dashboard.hoy' });
     const totalVendido = entregas.reduce((s, e) => s + Number(e.monto_total), 0);
 
     // Derive Cobrado from actual pagos to avoid desync with entregas.monto_pagado
@@ -62,13 +62,18 @@ const Dashboard = {
 
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 90);
-    let deudaQ = db.from('entregas')
-      .select('id, punto_entrega_id, monto_total, puntos_entrega(nombre)')
-      .gte('fecha_hora', cutoff.toISOString());
-    if (!isAdmin) deudaQ = deudaQ.eq('repartidor_id', Auth.currentUser.id);
-    const { data: allEntregas } = await deudaQ;
+    const allEntregas = await selectAll(
+      'entregas',
+      'id, punto_entrega_id, monto_total, puntos_entrega(nombre)',
+      q => {
+        q = q.gte('fecha_hora', cutoff.toISOString());
+        if (!isAdmin) q = q.eq('repartidor_id', Auth.currentUser.id);
+        return q;
+      },
+      { label: 'dashboard.deuda' }
+    );
     // Fetch pagos for deudores entregas (source of truth)
-    const deudaEntregaIds = (allEntregas || []).map(e => e.id);
+    const deudaEntregaIds = allEntregas.map(e => e.id);
     const deudaPagos = await batchIn('pagos', 'entrega_id, monto', 'entrega_id', deudaEntregaIds);
     const _dpSum = {};
     deudaPagos.forEach(p => { _dpSum[p.entrega_id] = (_dpSum[p.entrega_id] || 0) + Number(p.monto); });

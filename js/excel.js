@@ -53,13 +53,15 @@ const ExcelExport = {
       return Analisis._data.entregas;
     }
     const { from, to } = Analisis._dateRange(Analisis.periodo);
-    let query = db.from('entregas')
-      .select('*, entrega_lineas(*, tipos_alfajor(nombre)), puntos_entrega(nombre, direccion), usuarios(nombre)');
-    if (from) query = query.gte('fecha_hora', from.toISOString());
-    query = query.lte('fecha_hora', to.toISOString());
-    query = query.order('fecha_hora', { ascending: true });
-    const { data } = await query;
-    return data || [];
+    return selectAll(
+      'entregas',
+      '*, entrega_lineas(*, tipos_alfajor(nombre)), puntos_entrega(nombre, direccion), usuarios(nombre)',
+      q => {
+        if (from) q = q.gte('fecha_hora', from.toISOString());
+        return q.lte('fecha_hora', to.toISOString()).order('fecha_hora', { ascending: true });
+      },
+      { label: 'excel.entregas' }
+    );
   },
 
   async exportEmi() {
@@ -135,8 +137,8 @@ const ExcelExport = {
     const liqMap = {};
     let usuariosMap = Analisis._data?.usuariosMap || {};
     if (Object.keys(usuariosMap).length === 0) {
-      const { data: uData } = await db.from('usuarios').select('id, nombre, comision_pct');
-      (uData || []).forEach(u => { usuariosMap[u.id] = u; });
+      const uData = await selectAll('usuarios', 'id, nombre, comision_pct');
+      uData.forEach(u => { usuariosMap[u.id] = u; });
     }
     entregas.forEach(e => {
       const key = e.repartidor_id;
@@ -239,22 +241,25 @@ const ExcelExport = {
     if (btn) btn.style.opacity = '0.5';
 
     try {
-      // Fetch ALL entregas (no date filter)
-      const { data: allEntregas } = await db.from('entregas')
-        .select('*, entrega_lineas(*, tipos_alfajor(nombre)), puntos_entrega(nombre), usuarios(nombre)')
-        .order('fecha_hora', { ascending: true });
-      const entregas = allEntregas || [];
+      // Every row, all time. Paged, so the audit cannot stop at 1000 and still
+      // present itself as complete — which is exactly what it did until v30.
+      const entregas = await selectAll(
+        'entregas',
+        '*, entrega_lineas(*, tipos_alfajor(nombre)), puntos_entrega(nombre), usuarios(nombre)',
+        q => q.order('fecha_hora', { ascending: true }),
+        { label: 'auditoria.entregas' }
+      );
 
-      // Fetch ALL pagos
-      const { data: allPagos } = await db.from('pagos')
-        .select('*, usuarios(nombre)')
-        .order('fecha', { ascending: true });
-      const pagos = allPagos || [];
+      const pagos = await selectAll(
+        'pagos',
+        '*, usuarios(nombre)',
+        q => q.order('fecha', { ascending: true }),
+        { label: 'auditoria.pagos' }
+      );
 
-      // Fetch usuarios
-      const { data: usuarios } = await db.from('usuarios').select('id, nombre, rol, comision_pct');
+      const usuarios = await selectAll('usuarios', 'id, nombre, rol, comision_pct');
       const userMap = {};
-      (usuarios || []).forEach(u => { userMap[u.id] = u; });
+      usuarios.forEach(u => { userMap[u.id] = u; });
 
       // Build pagos-per-entrega map
       const pagosPerEntrega = {};

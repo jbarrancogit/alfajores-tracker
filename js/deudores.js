@@ -105,26 +105,48 @@ const Deudores = {
       const myFetchId = Deudores._fetchId;
       const isAdmin = Auth.isAdmin();
 
-      let q = db.from('entregas')
-        .select('id, punto_entrega_id, fecha_hora, monto_total, repartidor_id, puntos_entrega(nombre), entrega_lineas(cantidad, tipos_alfajor(nombre))');
-      if (!isAdmin) {
-        q = q.eq('repartidor_id', Auth.currentUser.id);
-      } else if (Deudores.filters.repartidorId) {
-        q = q.eq('repartidor_id', Deudores.filters.repartidorId);
-      }
-      const { data: entregas } = await q;
+      // Ordered by id as a tiebreaker so paging stays stable across requests.
+      const entregas = await selectAll(
+        'entregas',
+        'id, punto_entrega_id, fecha_hora, monto_total, repartidor_id, puntos_entrega(nombre)',
+        q => {
+          q = q.order('fecha_hora', { ascending: false }).order('id', { ascending: false });
+          if (!isAdmin) {
+            q = q.eq('repartidor_id', Auth.currentUser.id);
+          } else if (Deudores.filters.repartidorId) {
+            q = q.eq('repartidor_id', Deudores.filters.repartidorId);
+          }
+          return q;
+        },
+        { label: 'deudores.entregas' }
+      );
       if (myFetchId !== Deudores._fetchId) return;
 
-      const entregaIds = (entregas || []).map(e => e.id);
+      const entregaIds = entregas.map(e => e.id);
       const pagos = await batchIn('pagos', 'entrega_id, monto', 'entrega_id', entregaIds);
       if (myFetchId !== Deudores._fetchId) return;
 
-      const { porPunto, unpaidEntregas } = Deudores._aggregate(entregas || [], pagos || []);
+      const { porPunto, unpaidEntregas } = Deudores._aggregate(entregas, pagos || []);
+
+      // Line detail is only rendered for unpaid entregas, so it is fetched for
+      // that subset instead of being embedded in the full-table scan above.
+      const lineas = await batchIn(
+        'entrega_lineas', 'entrega_id, cantidad, tipos_alfajor(nombre)',
+        'entrega_id', unpaidEntregas.map(e => e.id)
+      );
+      if (myFetchId !== Deudores._fetchId) return;
+      const lineasPorEntrega = {};
+      lineas.forEach(l => {
+        if (!lineasPorEntrega[l.entrega_id]) lineasPorEntrega[l.entrega_id] = [];
+        lineasPorEntrega[l.entrega_id].push(l);
+      });
+      unpaidEntregas.forEach(e => { e.entrega_lineas = lineasPorEntrega[e.id] || []; });
+
       Deudores._data = porPunto;
       Deudores._unpaidEntregas = unpaidEntregas;
 
       if (isAdmin) {
-        const { data: usuarios } = await db.from('usuarios').select('id, nombre').order('nombre');
+        const usuarios = await selectAll('usuarios', 'id, nombre', q => q.order('nombre'));
         const sel = document.getElementById('deud-repartidor');
         if (sel && usuarios) {
           const opts = usuarios.map(u =>

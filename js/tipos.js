@@ -2,12 +2,12 @@ const Tipos = {
   cache: [],
 
   async fetchAll() {
-    const { data, error } = await db
-      .from('tipos_alfajor')
-      .select('*')
-      .order('orden');
-    if (error) console.error('Error cargando tipos:', error);
-    Tipos.cache = data || [];
+    try {
+      Tipos.cache = await selectAll('tipos_alfajor', '*', q => q.order('orden'));
+    } catch (err) {
+      console.error('Error cargando tipos:', err);
+      Tipos.cache = [];
+    }
     return Tipos.cache;
   },
 

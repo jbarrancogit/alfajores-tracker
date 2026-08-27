@@ -3,14 +3,66 @@ const SUPABASE_ANON_KEY = 'sb_publishable_40z5jVgzQoUeS815XABZNw_ewFTjg2o';
 
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-/** Batch .in() queries to avoid PostgREST URL length limits (~8KB) */
-async function batchIn(table, select, field, ids) {
+/**
+ * Supabase caps every REST response at db-max-rows (1000 by default). The cap
+ * is reported only in the Content-Range header, which supabase-js does not
+ * expose, so an unbounded .select() quietly returns 1000 rows and no error:
+ * the caller cannot tell a complete answer from a truncated one.
+ *
+ * selectAll() is the only safe way to read a table that can outgrow that cap.
+ * It pages until the server returns a short page, so it either returns every
+ * matching row or throws. tests/no-unbounded-queries.test.js fails the build if
+ * a module reads through db.from() without going through here or capping itself
+ * on purpose with .limit()/.range()/.single().
+ *
+ * @param {string}   table        table name
+ * @param {string}   select       PostgREST select expression
+ * @param {Function} [applyFilters] receives the query, returns it filtered
+ * @param {Object}   [options]    { client, label }
+ */
+const DB_PAGE_SIZE = 1000;
+const DB_MAX_PAGES = 500;
+
+async function selectAll(table, select, applyFilters, options) {
+  const opts = options || {};
+  const client = opts.client || db;
+  const label = opts.label || table;
+  const rows = [];
+
+  for (let page = 0; page < DB_MAX_PAGES; page++) {
+    const from = page * DB_PAGE_SIZE;
+    let q = client.from(table).select(select);
+    if (applyFilters) q = applyFilters(q);
+
+    const { data, error } = await q.range(from, from + DB_PAGE_SIZE - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) return rows;
+
+    rows.push(...data);
+    if (data.length < DB_PAGE_SIZE) return rows;
+  }
+
+  // Refuse to return a half-read table: a silent partial answer is the bug
+  // this helper exists to prevent.
+  throw new Error(`selectAll(${label}): superó ${DB_MAX_PAGES} páginas`);
+}
+
+/**
+ * Batch .in() queries to avoid PostgREST URL length limits (~8KB).
+ * Each chunk goes through fetchAll(), because a chunk of 200 ids can still
+ * match more than 1000 rows on a one-to-many table.
+ */
+async function batchIn(table, select, field, ids, options) {
   if (!ids || ids.length === 0) return [];
   const CHUNK = 200;
   const results = [];
   for (let i = 0; i < ids.length; i += CHUNK) {
-    const { data } = await db.from(table).select(select).in(field, ids.slice(i, i + CHUNK));
-    if (data) results.push(...data);
+    const slice = ids.slice(i, i + CHUNK);
+    const rows = await selectAll(table, select, q => q.in(field, slice), {
+      client: options && options.client,
+      label: `${table}.in(${field})`
+    });
+    results.push(...rows);
   }
   return results;
 }

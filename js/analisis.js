@@ -55,7 +55,7 @@ const Analisis = {
   },
 
   async _initRender() {
-    const { data: usuarios } = await db.from('usuarios').select('id, nombre').order('nombre');
+    const usuarios = await selectAll('usuarios', 'id, nombre', q => q.order('nombre'));
     const sel = document.getElementById('anal-vendedor');
     if (sel && usuarios) {
       const opts = usuarios.map(u =>
@@ -215,18 +215,22 @@ const Analisis = {
   async loadData() {
    try {
     await Tipos.fetchAll();
-    const { data: usuariosData } = await db.from('usuarios').select('id, nombre, comision_pct');
+    const usuariosData = await selectAll('usuarios', 'id, nombre, comision_pct');
     const usuariosMap = {};
-    (usuariosData || []).forEach(u => { usuariosMap[u.id] = u; });
+    usuariosData.forEach(u => { usuariosMap[u.id] = u; });
     const { from, to } = Analisis._dateRange(Analisis.periodo);
 
-    let query = db.from('entregas')
-      .select('*, entrega_lineas(*, tipos_alfajor(nombre)), puntos_entrega(nombre), usuarios(nombre)');
-    if (from) query = query.gte('fecha_hora', from.toISOString());
-    query = query.lte('fecha_hora', to.toISOString());
-    if (Analisis.vendedorId) query = query.eq('repartidor_id', Analisis.vendedorId);
-    const { data } = await query;
-    const entregas = data || [];
+    const entregas = await selectAll(
+      'entregas',
+      '*, entrega_lineas(*, tipos_alfajor(nombre)), puntos_entrega(nombre), usuarios(nombre)',
+      q => {
+        if (from) q = q.gte('fecha_hora', from.toISOString());
+        q = q.lte('fecha_hora', to.toISOString());
+        if (Analisis.vendedorId) q = q.eq('repartidor_id', Analisis.vendedorId);
+        return q;
+      },
+      { label: 'analisis.entregas' }
+    );
 
     // Fetch pagos breakdown for these entregas (batched to avoid URL limits)
     let cobradoEfectivo = 0, cobradoTransfer = 0, cobradoMauri = 0;
@@ -255,11 +259,12 @@ const Analisis = {
     let prevEntregas = [];
     if (from) {
       const prev = Analisis._prevRange(from, to);
-      let prevQ = db.from('entregas')
-        .select('*, entrega_lineas(cantidad, precio_unitario, costo_unitario)');
-      prevQ = prevQ.gte('fecha_hora', prev.from.toISOString()).lt('fecha_hora', prev.to.toISOString());
-      const { data: prevData } = await prevQ;
-      prevEntregas = prevData || [];
+      prevEntregas = await selectAll(
+        'entregas',
+        '*, entrega_lineas(cantidad, precio_unitario, costo_unitario)',
+        q => q.gte('fecha_hora', prev.from.toISOString()).lt('fecha_hora', prev.to.toISOString()),
+        { label: 'analisis.prevEntregas' }
+      );
     }
 
     const totalVendido = entregas.reduce((s, e) => s + Number(e.monto_total), 0);

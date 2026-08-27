@@ -2,13 +2,13 @@ const Puntos = {
   cache: [],
 
   async fetchAll() {
-    const { data, error } = await db
-      .from('puntos_entrega')
-      .select('*')
-      .eq('activo', true)
-      .order('nombre');
-    if (error) console.error('Error cargando puntos:', error);
-    Puntos.cache = data || [];
+    try {
+      Puntos.cache = await selectAll('puntos_entrega', '*',
+        q => q.eq('activo', true).order('nombre'));
+    } catch (err) {
+      console.error('Error cargando puntos:', err);
+      Puntos.cache = [];
+    }
     return Puntos.cache;
   },
 
