@@ -154,6 +154,23 @@ const Pagos = {
     return '<span class="badge badge-red">Debe</span>';
   },
 
+  /**
+   * How much was actually collected per entrega, read from the pagos table.
+   *
+   * entregas.monto_pagado is a denormalised copy maintained by a trigger and it
+   * can drift: a half-finished edit can leave it set with no pago row behind it.
+   * Deudores has always computed balances from pagos, so anything that reads
+   * monto_pagado instead disagrees with the list the user is looking at.
+   */
+  async _pagadoPorEntrega(entregaIds) {
+    const pagos = await batchIn('pagos', 'entrega_id, monto', 'entrega_id', entregaIds);
+    const porEntrega = {};
+    pagos.forEach(p => {
+      porEntrega[p.entrega_id] = (porEntrega[p.entrega_id] || 0) + Number(p.monto);
+    });
+    return porEntrega;
+  },
+
   /** Show debtor modal with all unpaid entregas for a punto */
   async showDeudorModal(puntoId, puntoNombre) {
     const entregasDelPunto = await selectAll(
@@ -162,14 +179,17 @@ const Pagos = {
       { label: 'pagos.deudorModal' }
     );
 
-    const impagas = entregasDelPunto.filter(e => Number(e.monto_pagado) < Number(e.monto_total));
+    const pagado = await Pagos._pagadoPorEntrega(entregasDelPunto.map(e => e.id));
+    const impagas = entregasDelPunto
+      .map(e => Object.assign({}, e, { _pagado: pagado[e.id] || 0 }))
+      .filter(e => e._pagado < Number(e.monto_total));
 
     if (impagas.length === 0) {
       showToast('Sin deudas pendientes');
       return;
     }
 
-    const totalDeuda = impagas.reduce((s, e) => s + Number(e.monto_total) - Number(e.monto_pagado), 0);
+    const totalDeuda = impagas.reduce((s, e) => s + Number(e.monto_total) - e._pagado, 0);
 
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
@@ -201,7 +221,7 @@ const Pagos = {
         <button class="btn btn-secondary btn-block mb-16"
                 onclick="Pagos.sharePortal('${puntoId}')">Compartir cuenta</button>
         ${impagas.map(e => {
-          const deuda = Number(e.monto_total) - Number(e.monto_pagado);
+          const deuda = Number(e.monto_total) - e._pagado;
           const lineas = (e.entrega_lineas || []).map(l =>
             `${esc(l.tipos_alfajor?.nombre || '?')}: ${l.cantidad}`
           ).join(', ');
@@ -212,7 +232,7 @@ const Pagos = {
                 <span class="text-red" style="font-weight:600">${fmtMoney(deuda)}</span>
               </div>
               <div class="deudor-entrega-detail">${lineas || e.cantidad + ' uds'}</div>
-              <div class="deudor-entrega-detail">Total: ${fmtMoney(e.monto_total)} · Pagado: ${fmtMoney(e.monto_pagado)}</div>
+              <div class="deudor-entrega-detail">Total: ${fmtMoney(e.monto_total)} · Pagado: ${fmtMoney(e._pagado)}</div>
               <div id="pago-slot-${e.id}" style="margin-top:8px">
                 <button class="btn btn-secondary btn-block" style="min-height:36px;font-size:0.8rem"
                         onclick="this.parentElement.innerHTML = Pagos.renderFormInline('${e.id}', ${deuda})">
@@ -283,10 +303,13 @@ const Pagos = {
         { label: 'pagos.pagarTodo' }
       );
 
-      const impagas = entregasDelPunto.filter(e => Number(e.monto_pagado) < Number(e.monto_total));
+      const pagado = await Pagos._pagadoPorEntrega(entregasDelPunto.map(e => e.id));
+      const impagas = entregasDelPunto
+        .map(e => Object.assign({}, e, { _pagado: pagado[e.id] || 0 }))
+        .filter(e => e._pagado < Number(e.monto_total));
 
       for (const e of impagas) {
-        const deuda = Number(e.monto_total) - Number(e.monto_pagado);
+        const deuda = Number(e.monto_total) - e._pagado;
         await Pagos.registrar(e.id, deuda, formaPago);
         exitosos++;
       }
