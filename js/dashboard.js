@@ -124,6 +124,10 @@ const Dashboard = {
     if (!isAdmin) recentQ = recentQ.eq('repartidor_id', Auth.currentUser.id);
     const { data: recientes } = await recentQ;
 
+    // Same source of truth as Deudores for the paid/unpaid badge.
+    const pagadoReciente = await Pagos._pagadoPorEntrega((recientes || []).map(e => e.id));
+    (recientes || []).forEach(e => { e._pagado = pagadoReciente[e.id] || 0; });
+
     const recientesEl = document.getElementById('dash-recientes');
     if (recientesEl) {
       if (!recientes || recientes.length === 0) {
@@ -143,7 +147,7 @@ const Dashboard = {
               </div>
               <div class="list-item-right">
                 <div class="list-item-amount">${fmtMoney(e.monto_total)}</div>
-                ${Pagos.badge(e.monto_pagado, e.monto_total)}
+                ${Pagos.badge(e._pagado, e.monto_total)}
               </div>
             </div>
           `;

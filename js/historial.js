@@ -137,6 +137,14 @@ const Historial = {
       return;
     }
 
+    // The paid/unpaid badge reads the pagos table, like Deudores does, so a row
+    // whose monto_pagado drifted cannot show as settled in one screen and as debt
+    // in another.
+    const pagadoPorEntrega = await Pagos._pagadoPorEntrega(data.map(e => e.id));
+    data.forEach(e => { e._pagado = pagadoPorEntrega[e.id] || 0; });
+
+    if (myFetchId !== Historial._fetchId) return;
+
     listEl.innerHTML = data.map(e => {
       const nombre = e.puntos_entrega?.nombre || e.punto_nombre_temp || 'Sin punto';
       const lineas = (e.entrega_lineas || []);
@@ -151,7 +159,7 @@ const Historial = {
           </div>
           <div class="list-item-right">
             <div class="list-item-amount">${fmtMoney(e.monto_total)}</div>
-            ${Pagos.badge(e.monto_pagado, e.monto_total)}
+            ${Pagos.badge(e._pagado, e.monto_total)}
           </div>
         </div>
       `;
@@ -182,7 +190,7 @@ const Historial = {
     const e = Historial._data.find(x => x.id === id);
     if (!e) return;
     const nombre = e.puntos_entrega?.nombre || e.punto_nombre_temp || 'Sin punto';
-    const saldo = Number(e.monto_total) - Number(e.monto_pagado);
+    const saldo = Number(e.monto_total) - Number(e._pagado);
     const lineas = e.entrega_lineas || [];
 
     // Fetch payment history
@@ -217,7 +225,7 @@ const Historial = {
           `}
 
           <p><strong>Total:</strong> ${fmtMoney(e.monto_total)}</p>
-          <p><strong>Pagado:</strong> ${fmtMoney(e.monto_pagado)}</p>
+          <p><strong>Pagado:</strong> ${fmtMoney(e._pagado)}</p>
           ${saldo > 0 ? `<p><strong>Debe:</strong> <span class="text-red">${fmtMoney(saldo)}</span></p>` : ''}
           <p><strong>Forma de pago:</strong> ${{efectivo:'Efectivo',transferencia:'Transferencia',transferencia_mauri:'Transfer. Mauri',mixto:'Mixto',fiado:'Fiado'}[e.forma_pago] || esc(e.forma_pago)}</p>
           ${e.notas ? `<p><strong>Notas:</strong> ${esc(e.notas)}</p>` : ''}
@@ -255,8 +263,8 @@ const Historial = {
         if (!confirm('¿Eliminar esta entrega y todos sus pagos?')) return;
         delBtn.disabled = true;
         try {
-          const { error } = await db.from('entregas').delete().eq('id', e.id);
-          if (error) throw error;
+          await deleteRows('entregas', q => q.eq('id', e.id),
+            { expectRows: true, label: 'la entrega' });
           showToast('Entrega eliminada');
           overlay.remove();
           Historial.fetchEntregas();
@@ -277,7 +285,7 @@ const Historial = {
     let vendido = 0, cobrado = 0;
     (entregas || []).forEach(e => {
       vendido += Number(e.monto_total) || 0;
-      cobrado += Number(e.monto_pagado) || 0;
+      cobrado += Number(e._pagado) || 0;
       if (e.punto_entrega_id) puntos.add(e.punto_entrega_id);
     });
     return { vendido, cobrado, saldo: vendido - cobrado, puntosCount: puntos.size };

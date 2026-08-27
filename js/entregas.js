@@ -453,7 +453,7 @@ const Entregas = {
 
         // Delete old lines first to avoid unique constraint violation
         // (entrega_id + tipo_alfajor_id must be unique)
-        await db.from('entrega_lineas').delete().eq('entrega_id', editId);
+        await deleteRows('entrega_lineas', q => q.eq('entrega_id', editId));
 
         // Insert new lines
         const lineRows = lines.map(l => ({ ...l, entrega_id: entregaId }));
@@ -464,7 +464,7 @@ const Entregas = {
         // (DB triggers will sync monto_pagado & forma_pago on entregas)
         // RLS: pagos_delete requires admin — only admin can edit payments
         if (Auth.isAdmin()) {
-          await db.from('pagos').delete().eq('entrega_id', editId);
+          await deleteRows('pagos', q => q.eq('entrega_id', editId));
           const pagosEdit = [];
           if (pagoEf > 0) pagosEdit.push({ entrega_id: editId, monto: pagoEf, forma_pago: 'efectivo', registrado_por: Auth.currentUser.id });
           if (pagoTr > 0) pagosEdit.push({ entrega_id: editId, monto: pagoTr, forma_pago: 'transferencia', registrado_por: Auth.currentUser.id });
@@ -482,7 +482,16 @@ const Entregas = {
         const lineRows = lines.map(l => ({ ...l, entrega_id: entregaId }));
         const { error: lineErr } = await db.from('entrega_lineas').insert(lineRows);
         if (lineErr) {
-          await db.from('entregas').delete().eq('id', entregaId);
+          // Roll back the entrega so a failed insert cannot leave one behind with
+          // no lines. If the rollback itself fails, say so loudly but still report
+          // the original error — this is the path that produced the orphan entrega
+          // of 2026-04-30, which sat in the debt list for four months.
+          try {
+            await deleteRows('entregas', q => q.eq('id', entregaId),
+              { expectRows: true, label: 'rollback de la entrega' });
+          } catch (rollbackErr) {
+            console.error('Entrega huérfana, no se pudo revertir:', entregaId, rollbackErr);
+          }
           throw lineErr;
         }
       }

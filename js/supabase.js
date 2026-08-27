@@ -48,6 +48,40 @@ async function selectAll(table, select, applyFilters, options) {
 }
 
 /**
+ * Delete rows and report how many were actually removed.
+ *
+ * PostgREST answers a DELETE that matched nothing with 200 and an empty body,
+ * and RLS filters rows out before the delete rather than raising an error. A
+ * blocked or mistargeted delete is therefore indistinguishable from a successful
+ * one unless the deleted rows are asked back with .select().
+ *
+ * Callers removing one specific record pass expectRows so that deleting nothing
+ * becomes an error instead of a success message. Callers clearing child rows
+ * before re-inserting them leave it off, since matching nothing is legitimate
+ * there.
+ *
+ * @param {string}   table
+ * @param {Function} applyFilters receives the query, returns it filtered
+ * @param {Object}   [options] { expectRows, client, label }
+ * @returns {Promise<Array>} the rows the server actually deleted
+ */
+async function deleteRows(table, applyFilters, options) {
+  const opts = options || {};
+  const client = opts.client || db;
+  let q = client.from(table).delete();
+  if (applyFilters) q = applyFilters(q);
+
+  const { data, error } = await q.select();
+  if (error) throw error;
+
+  const rows = data || [];
+  if (opts.expectRows && rows.length === 0) {
+    throw new Error(`No se eliminó ningún registro en ${opts.label || table}`);
+  }
+  return rows;
+}
+
+/**
  * Batch .in() queries to avoid PostgREST URL length limits (~8KB).
  * Each chunk goes through fetchAll(), because a chunk of 200 ids can still
  * match more than 1000 rows on a one-to-many table.

@@ -267,8 +267,8 @@ const Pagos = {
     if (!Auth.isAdmin()) { showToast('Solo admin puede eliminar pagos'); return; }
     if (!confirm('¿Eliminar este pago?')) return;
     try {
-      const { error } = await db.from('pagos').delete().eq('id', pagoId);
-      if (error) throw error;
+      await deleteRows('pagos', q => q.eq('id', pagoId),
+        { expectRows: true, label: 'el pago' });
       showToast('Pago eliminado');
       const overlay = document.querySelector('.modal-overlay');
       if (overlay) overlay.remove();

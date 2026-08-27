@@ -350,8 +350,11 @@ describe('Historial._resolvePuntoIds — substring resolver', () => {
 describe('Historial._aggregateClientHeader — pure aggregation', () => {
   it('sums vendido and cobrado from entregas list', () => {
     const entregas = [
-      { id: 'e1', monto_total: 1000, monto_pagado: 600, punto_entrega_id: 'p1' },
-      { id: 'e2', monto_total: 500, monto_pagado: 500, punto_entrega_id: 'p1' }
+      // _pagado is what fetchEntregas attaches from the pagos table. monto_pagado
+      // is the denormalised column and is deliberately ignored here, so these two
+      // rows also prove the aggregate no longer reads it.
+      { id: 'e1', monto_total: 1000, monto_pagado: 999, _pagado: 600, punto_entrega_id: 'p1' },
+      { id: 'e2', monto_total: 500, monto_pagado: 0, _pagado: 500, punto_entrega_id: 'p1' }
     ];
     const r = Historial._aggregateClientHeader(entregas);
     expect(r.vendido).toBe(1500);
